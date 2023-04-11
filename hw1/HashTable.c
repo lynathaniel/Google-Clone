@@ -36,6 +36,55 @@ int HashKeyToBucketNum(HashTable *ht, HTKey_t key) {
 static void LLNoOpFree(LLPayload_t freeme) { }
 static void HTNoOpFree(HTValue_t freeme) { }
 
+// Deallocation function that frees the given payload.
+// Only used inside FindKey() when removing a key/value
+// pair from a bucket, as the payload needs to be freed.
+static void LLFreePayload(LLPayload_t payload) {
+  free(payload);
+}
+
+// Finds if a key/value pair exists within a chain given the key.
+//
+// Arguments:
+// - chain: the LinkedList to search within.
+// - key: the key of the key/value pair to find.
+// - keyvalue: a return parameter that stores the key/value pair if found.
+// - do_remove: if true, removes the key/value pair from the list.
+//
+// Returns:
+// - true: if the key/value pair is successfully found.
+// - false: if the key/value pair was not found.
+static bool FindKey(LinkedList* chain, HTKey_t key, HTKeyValue_t* keyvalue,
+                     bool do_remove) {
+  LLPayload_t currkeyvalue_payload;
+  LLIterator* chain_itr = LLIterator_Allocate(chain);
+
+  // Go through the bucket, try to find if the key already exists.
+  while (LLIterator_IsValid(chain_itr)) {
+    // Extract the payload from the node the iterator is pointing at.
+    LLIterator_Get(chain_itr, (LLPayload_t*) &currkeyvalue_payload);
+    HTKeyValue_t* currkeyvalue = (HTKeyValue_t*) currkeyvalue_payload;
+
+    // If the key already exists in the table, return the old value
+    // through keyvalue.
+    if (currkeyvalue->key == key) {
+      *keyvalue = *currkeyvalue;
+
+      // If do_remove is true, remove this key/value pair from the bucekt.
+      if (do_remove) {
+        LLIterator_Remove(chain_itr, LLFreePayload);
+      }
+
+      LLIterator_Free(chain_itr);
+      return true;
+    }
+
+    LLIterator_Next(chain_itr);
+  }
+
+  LLIterator_Free(chain_itr);
+  return false;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // HashTable implementation.
@@ -137,7 +186,21 @@ bool HashTable_Insert(HashTable *table,
   // all that logic inside here.  You might also find that your helper
   // can be reused in steps 2 and 3.
 
-  return 0;  // you may need to change this return value
+  // Set our copy of newkeyvalue up (which is inserted later).
+  HTKeyValue_t* newkeyvalue_cp = (HTKeyValue_t*)malloc(sizeof(HTKeyValue_t));
+  Verify333(newkeyvalue_cp != NULL);
+  *newkeyvalue_cp = newkeyvalue;
+
+  // Determine if key/value pair exists already, and remove if it does.
+  bool found = FindKey(chain, newkeyvalue.key, oldkeyvalue, true);
+
+  // Replace key/value pair and update metadata.
+  LinkedList_Push(chain, newkeyvalue_cp);
+  if (!found) {
+    table->num_elements += 1;
+  }
+
+  return found;
 }
 
 bool HashTable_Find(HashTable *table,
@@ -147,7 +210,14 @@ bool HashTable_Find(HashTable *table,
 
   // STEP 2: implement HashTable_Find.
 
-  return false;  // you may need to change this return value
+  // Calculate which bucket and chain we're finding for.
+  int bucket = HashKeyToBucketNum(table, key);
+  LinkedList* chain = table->buckets[bucket];
+
+  // Determine if key/value pair exists in the table.
+  bool found = FindKey(chain, key, keyvalue, false);
+
+  return found;
 }
 
 bool HashTable_Remove(HashTable *table,
@@ -157,7 +227,19 @@ bool HashTable_Remove(HashTable *table,
 
   // STEP 3: implement HashTable_Remove.
 
-  return 0;  // you may need to change this return value
+  // Calculate which bucket and chain we're removing from.
+  int bucket = HashKeyToBucketNum(table, key);
+  LinkedList* chain = table->buckets[bucket];
+
+  // Determine if key/value pair exists in the table; if it does, remove it.
+  bool removed = FindKey(chain, key, keyvalue, true);
+
+  // Update metadata.
+  if (removed) {
+    table->num_elements -= 1;
+  }
+
+  return removed;
 }
 
 
@@ -210,23 +292,61 @@ bool HTIterator_IsValid(HTIterator *iter) {
 
   // STEP 4: implement HTIterator_IsValid.
 
-  return true;  // you may need to change this return value
+  // If the bucket_idx is invalid, then we know the table
+  // is either empty or the iterator has been moved past
+  // any elements.
+  if (iter->bucket_idx == INVALID_IDX) {
+    return false;
+  }
+
+  return LLIterator_IsValid(iter->bucket_it);
 }
 
 bool HTIterator_Next(HTIterator *iter) {
   Verify333(iter != NULL);
 
   // STEP 5: implement HTIterator_Next.
+  if (iter->bucket_idx == INVALID_IDX) {
+    return false;
+  }
 
-  return true;  // you may need to change this return value
+  LLIterator_Next(iter->bucket_it);
+  if (!HTIterator_IsValid(iter)) {
+    // If the call to LLIterator_Next on bucket_it makes it invalid, we need
+    // to change bucket_it to point to a chain with elements in it if possible.
+    int curr_idx = iter->bucket_idx;
+    LLIterator_Free(iter->bucket_it);
+    for (int i = curr_idx + 1; i < iter->ht->num_buckets; i++) {
+      if (LinkedList_NumElements(iter->ht->buckets[i]) > 0) {
+        iter->bucket_it = LLIterator_Allocate(iter->ht->buckets[i]);
+        iter->bucket_idx = i;
+        return true;
+      }
+    }
+
+    // If there are no more chains that can be iterated through,
+    // mark this HTIterator as invalid.
+    iter->bucket_it = NULL;
+    iter->bucket_idx = INVALID_IDX;
+    return false;
+  }
+
+  return true;
 }
 
 bool HTIterator_Get(HTIterator *iter, HTKeyValue_t *keyvalue) {
   Verify333(iter != NULL);
 
   // STEP 6: implement HTIterator_Get.
+  if (!HTIterator_IsValid(iter)) {
+    return false;
+  }
 
-  return true;  // you may need to change this return value
+  LLPayload_t currkeyvalue_payload = NULL;
+  LLIterator_Get(iter->bucket_it, &currkeyvalue_payload);
+  HTKeyValue_t* currkeyvalue = (HTKeyValue_t*) currkeyvalue_payload;
+  *keyvalue = *currkeyvalue;
+  return true;
 }
 
 bool HTIterator_Remove(HTIterator *iter, HTKeyValue_t *keyvalue) {
@@ -245,7 +365,6 @@ bool HTIterator_Remove(HTIterator *iter, HTKeyValue_t *keyvalue) {
   HTIterator_Next(iter);
 
   // Lastly, remove the element.  Again, we know this call will succeed
-  // due to the successful HTIterator_Get above.
   Verify333(HashTable_Remove(iter->ht, kv.key, keyvalue));
   Verify333(kv.key == keyvalue->key);
   Verify333(kv.value == keyvalue->value);
