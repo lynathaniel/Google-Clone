@@ -55,36 +55,7 @@ static void LLFreePayload(LLPayload_t payload) {
 // - true: if the key/value pair is successfully found.
 // - false: if the key/value pair was not found.
 static bool FindKey(LinkedList* chain, HTKey_t key, HTKeyValue_t* keyvalue,
-                     bool do_remove) {
-  LLPayload_t currkeyvalue_payload;
-  LLIterator* chain_itr = LLIterator_Allocate(chain);
-
-  // Go through the bucket, try to find if the key already exists.
-  while (LLIterator_IsValid(chain_itr)) {
-    // Extract the payload from the node the iterator is pointing at.
-    LLIterator_Get(chain_itr, (LLPayload_t*) &currkeyvalue_payload);
-    HTKeyValue_t* currkeyvalue = (HTKeyValue_t*) currkeyvalue_payload;
-
-    // If the key already exists in the table, return the old value
-    // through keyvalue.
-    if (currkeyvalue->key == key) {
-      *keyvalue = *currkeyvalue;
-
-      // If do_remove is true, remove this key/value pair from the bucekt.
-      if (do_remove) {
-        LLIterator_Remove(chain_itr, LLFreePayload);
-      }
-
-      LLIterator_Free(chain_itr);
-      return true;
-    }
-
-    LLIterator_Next(chain_itr);
-  }
-
-  LLIterator_Free(chain_itr);
-  return false;
-}
+                     bool do_remove);
 
 ///////////////////////////////////////////////////////////////////////////////
 // HashTable implementation.
@@ -164,6 +135,38 @@ void HashTable_Free(HashTable *table,
 int HashTable_NumElements(HashTable *table) {
   Verify333(table != NULL);
   return table->num_elements;
+}
+
+static bool FindKey(LinkedList* chain, HTKey_t key, HTKeyValue_t* keyvalue,
+                     bool do_remove) {
+  LLPayload_t currkeyvalue_payload;
+  LLIterator* chain_itr = LLIterator_Allocate(chain);
+
+  // Go through the bucket, try to find if the key already exists.
+  while (LLIterator_IsValid(chain_itr)) {
+    // Extract the payload from the node the iterator is pointing at.
+    LLIterator_Get(chain_itr, (LLPayload_t*) &currkeyvalue_payload);
+    HTKeyValue_t* currkeyvalue = (HTKeyValue_t*) currkeyvalue_payload;
+
+    // If the key already exists in the table, return the old value
+    // through keyvalue.
+    if (currkeyvalue->key == key) {
+      *keyvalue = *currkeyvalue;
+
+      // If do_remove is true, remove this key/value pair from the bucekt.
+      if (do_remove) {
+        LLIterator_Remove(chain_itr, LLFreePayload);
+      }
+
+      LLIterator_Free(chain_itr);
+      return true;
+    }
+
+    LLIterator_Next(chain_itr);
+  }
+
+  LLIterator_Free(chain_itr);
+  return false;
 }
 
 bool HashTable_Insert(HashTable *table,
