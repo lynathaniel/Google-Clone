@@ -1,10 +1,12 @@
+// Copyright 2023 Basit Ali
+// Email: basitali@uw.edu
 #include "ro_file.h"
 
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
-
+#include <stdio.h>
 
 /*** INTERNAL DATA TYPES AND CONSTANTS **************************************/
 
@@ -42,17 +44,32 @@ static ssize_t fill_buffer(RO_FILE* file);
 
 /*** FUNCTION DEFINITIONS ***************************************************/
 
-// TODO: Write this function
 RO_FILE* ro_open(char* filename) {
   // 1. Allocate a new RO_FILE
+  RO_FILE* file = (RO_FILE*) malloc(sizeof(RO_FILE));
+  if (file == NULL) {
+    return NULL;
+  }
 
   // 2. Get the file descriptor for the file
+  int file_fd = open(filename, O_RDONLY);
+  if (file_fd == -1) {
+    return NULL;
+  }
+  file->fd = file_fd;
 
   // 3. Allocate the internal buffer
+  char* filebuf = (char*) malloc(sizeof(char) * RO_FILE_BUF_LEN);
+  if (filebuf == NULL) {
+    return NULL;
+  }
+  file->buf = filebuf;
 
   // 4. Initialize the other fields (no reading done yet)
-
-  return NULL;
+  file->buf_pos = 0;
+  file->buf_index = 0;
+  file->buf_end = 0;
+  return file;
 }
 
 ssize_t ro_read(char* ptr, size_t len, RO_FILE* file) {
@@ -82,6 +99,7 @@ ssize_t ro_read(char* ptr, size_t len, RO_FILE* file) {
   return num_copied_out;
 }
 
+
 off_t ro_tell(RO_FILE* file) {
   if (file == NULL) {
     return -1;
@@ -89,40 +107,72 @@ off_t ro_tell(RO_FILE* file) {
   return file->buf_pos + file->buf_index;
 }
 
-// TODO: Write this function
 int ro_seek(RO_FILE* file, off_t offset, int whence) {
   // 1. Check validity of arguments, where applicable.
+  if (file == NULL || (whence != SEEK_SET && whence != SEEK_END
+      && whence != SEEK_CUR)) {
+    fprintf(stderr, "Invalid arguments passed to ro_seek.\n");
+    return 1;
+  }
 
   // 2. Seek to specified offset from specified whence using lseek.
   //    No need to check if new position is already in our buffer.
+  off_t lseek_ret = lseek(file->fd, offset, whence);
+  if (lseek_ret == -1) {
+    perror("lseek failed\n");
+    return 1;
+  }
 
-  // 3. Update our buffer indicators
+  // 3. Update our buffer indicators.
+
+  file->buf_pos = lseek_ret;
+  file->buf_index = 0;
+  file->buf_end = 0;
 
   return 0;
 }
 
-// TODO: Write this function
 int ro_close(RO_FILE* file) {
   // Clean up all RO_FILE resources, returns non-zero on error
+  int close_ret = close(file->fd);
+  if (close_ret == -1) {
+    fprintf(stderr, "File unable to be closed\n");
+    return -1;
+  }
+
+  free(file->buf);
+  free(file);
+
   return 0;
 }
 
 
 /*** STATIC HELPER FUNCTION DEFINITIONS *************************************/
 
-// TODO: Write this function
 size_t flush_buffer(RO_FILE* file, char* out, int amount) {
   // 1. Copy/flush bytes to 'out' starting from the buffer index. The amount
   //    flushed should be the min of 'amount' and the remaining unflushed bytes
   //    in the buffer.
+  int flushed;
+  int unflushed = file->buf_end - file->buf_index;
+  if (unflushed < amount) {
+    flushed = unflushed;
+  } else {
+    flushed = amount;
+  }
+
+  char* ptr = file->buf + file->buf_index;
+  for (int i = 0; i < flushed; i++) {
+    out[i] = ptr[i];
+  }
 
   // 2. Advance buffer index by the number of bytes flushed.
+  file->buf_index += flushed;
 
   // 3. Return the number of bytes flushed.
-  return 0;
+  return flushed;
 }
 
-// TODO: Write this function
 ssize_t fill_buffer(RO_FILE* file) {
   // NOTES:
   // - For maximum buffering benefit, we are "resetting" the buffer and then
@@ -133,5 +183,30 @@ ssize_t fill_buffer(RO_FILE* file) {
   // - You will need to implement a POSIX read loop with all appropriate
   //   return value checking.
 
-  return 0;
+  int bytes_left = RO_FILE_BUF_LEN;
+  int written = 0;
+  int result;
+  while (bytes_left > 0) {
+    result = read(file->fd, file->buf + written, bytes_left);
+    if (result == -1) {
+      if (errno != EINTR && errno != EAGAIN) {
+        ro_close(file);
+        return -1;
+      }
+      continue;
+    } else if (result == 0) {
+      break;
+    }
+    bytes_left -= result;
+    written = RO_FILE_BUF_LEN - bytes_left;
+  }
+
+  // Adjust buf_pos if buffer has been filled before.
+  if (file->buf_end > 0) {
+    file->buf_pos += written;
+  }
+
+  file->buf_index = 0;
+  file->buf_end = written;
+  return file->buf_end;
 }

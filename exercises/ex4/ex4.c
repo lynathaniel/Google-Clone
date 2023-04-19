@@ -30,6 +30,7 @@ char* Concatenate(char* dirname, char* filename);
  *   Eventually reading the files with ro_file module.
  */
 int main(int argc, char** argv) {
+  // Validate that user only inputted one argument (the directory name).
   if (argc != 2) {
     fprintf(stderr, "Usage: ./ex4 <dir>\n");
     return EXIT_FAILURE;
@@ -43,38 +44,41 @@ int main(int argc, char** argv) {
 
   struct dirent* entry;
   entry = readdir(dirp);
+
+  // Iterate over every file within the directory.
   while (entry != NULL) {
     if (IsTxtFile(entry->d_name)) {
       char buf[READSIZE];
-      FILE* curr_file;
+      RO_FILE* curr_file;
       size_t readlen;
       char* full_path = Concatenate(argv[1], entry->d_name);
-      curr_file = fopen(full_path, "r");
+      curr_file = ro_open(full_path);
       free(full_path);
 
       if (curr_file == NULL) {
-        perror("fopen for read failed.");
+        perror("ro_open failed.");
         closedir(dirp);
         return EXIT_FAILURE;
       }
 
-      while ((readlen = fread(buf, 1, READSIZE, curr_file)) > 0) {
-        if (ferror(curr_file)) {
-          perror("fread failed.");
-          fclose(curr_file);
+      // Read from the .txt file, write to stdout.
+      while ((readlen = ro_read(buf, 1, curr_file)) > 0) {
+        if (readlen == -1) {
+          perror("ro_read failed.");
+          ro_close(curr_file);
           closedir(dirp);
           return EXIT_FAILURE;
         }
 
         if (fwrite(buf, 1, readlen, stdout) < readlen) {
           perror("fwrite failed");
-          fclose(curr_file);
+          ro_close(curr_file);
           closedir(dirp);
           return EXIT_FAILURE;
         }
       }
 
-      fclose(curr_file);
+      ro_close(curr_file);
     }
 
     entry = readdir(dirp);
