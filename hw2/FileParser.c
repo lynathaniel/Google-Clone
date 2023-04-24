@@ -62,7 +62,6 @@ char* ReadFileToString(const char* file_name, int* size) {
   struct stat file_stat;
   char* buf;
   int result, fd;
-  ssize_t num_read;
   size_t left_to_read;
 
   // STEP 1.
@@ -269,22 +268,17 @@ static void AddWordPosition(HashTable* tab, char* word,
     // a new WordPositions structure, and append the new position to its list
     // using a similar ugly hack as right above.
 
+    // Create copy of word to be put inside WordPositions later.
     new_str = (char*) malloc(strlen(word) + 1);
-    if (new_str == NULL) {
-      fprintf(stderr, "couldn't create space for string.");
-    }
-
+    Verify333(new_str != NULL);
     strncpy(new_str, word, strlen(word) + 1);
 
+    // Create new WordPositions and set its word and linked list of positions.
     WordPositions* new_word = (WordPositions*) malloc(sizeof(WordPositions));
-    if (new_word == NULL) {
-      fprintf(stderr, "couldn't create new word.");
-    }
-
-    LinkedList* new_word_positions = LinkedList_Allocate();
-
+    Verify333(new_word != NULL);
     new_word->word = new_str;
-    new_word->positions = new_word_positions;
+    new_word->positions = LinkedList_Allocate();
+
     LinkedList_Append(new_word->positions, (LLPayload_t) (int64_t) pos);
     HTKeyValue_t new_word_kv = {hash_key, new_word};
     HTKeyValue_t new_word_oldkv;
