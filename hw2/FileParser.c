@@ -69,25 +69,35 @@ char* ReadFileToString(const char* file_name, int* size) {
   // Use the stat system call to fetch a "struct stat" that describes
   // properties of the file. ("man 2 stat"). You can assume we're on a 64-bit
   // system, with a 64-bit off_t field.
-
-
+  if (stat(file_name, &file_stat) == -1) {
+    perror("Failed to get properties of file");
+    return NULL;
+  }
 
   // STEP 2.
   // Make sure this is a "regular file" and not a directory or something else
   // (use the S_ISREG macro described in "man 2 stat").
-
-
+  if (!S_ISREG(file_stat.st_mode)) {
+    fprintf(stderr, "cannot open something that is not a regular file.\n");
+    return NULL;
+  }
 
   // STEP 3.
   // Attempt to open the file for reading (see also "man 2 open").
-
-
+  fd = open(file_name, O_RDONLY);
+  if (fd == -1) {
+    fprintf(stderr, "could not open file.\n");
+    return NULL;
+  }
 
   // STEP 4.
   // Allocate space for the file, plus 1 extra byte to
   // '\0'-terminate the string.
-
-
+  buf = (char*) malloc((sizeof(char) * file_stat.st_size) + 1);
+  if (buf == NULL) {
+    fprintf(stderr, "could not allocate space for file.\n");
+    return NULL;
+  }
 
   // STEP 5.
   // Read in the file contents using the read() system call (see also
@@ -99,6 +109,19 @@ char* ReadFileToString(const char* file_name, int* size) {
   // particular what the return values -1 and 0 imply.
   left_to_read = file_stat.st_size;
   while (left_to_read > 0) {
+    result = read(fd, buf + (file_stat.st_size - left_to_read), left_to_read);
+    if (result == -1) {
+      if (errno != EINTR && errno != EAGAIN) {
+        perror("read failed\n");
+        close(fd);
+        return NULL;
+      }
+      continue;
+    } else if (result == 0) {
+      // EOF reached
+      break;
+    }
+    left_to_read -= result;
   }
 
   // Great, we're done!  We hit the end of the file and we read
@@ -200,8 +223,19 @@ static void InsertContent(HashTable* tab, char* content) {
   // AddWordPosition() helper with appropriate arguments, e.g.,
   // AddWordPosition(tab, wordstart, pos);
 
-  while (1) {
-    break;  // you may want to change this
+  while (*cur_ptr != '\0') {
+    if (isalpha(*cur_ptr)) {
+      *cur_ptr = tolower(*cur_ptr);
+      word_start = cur_ptr;
+      cur_ptr++;
+      while (isalpha(*cur_ptr)) {
+        *cur_ptr = tolower(*cur_ptr);
+        cur_ptr++;
+      }
+      *cur_ptr = '\0';
+      AddWordPosition(tab, word_start, word_start - content);
+    }
+    cur_ptr++;
   }  // end while-loop
 }
 
@@ -210,6 +244,7 @@ static void AddWordPosition(HashTable* tab, char* word,
   HTKey_t hash_key;
   HTKeyValue_t kv;
   WordPositions *wp;
+  char *new_str;
 
   // Hash the string.
   hash_key = FNVHash64((unsigned char*) word, strlen(word));
@@ -233,5 +268,26 @@ static void AddWordPosition(HashTable* tab, char* word,
     // No; this is the first time we've seen this word.  Allocate and prepare
     // a new WordPositions structure, and append the new position to its list
     // using a similar ugly hack as right above.
+
+    new_str = (char*) malloc(strlen(word) + 1);
+    if (new_str == NULL) {
+      fprintf(stderr, "couldn't create space for string.");
+    }
+
+    strncpy(new_str, word, strlen(word) + 1);
+
+    WordPositions* new_word = (WordPositions*) malloc(sizeof(WordPositions));
+    if (new_word == NULL) {
+      fprintf(stderr, "couldn't create new word.");
+    }
+
+    LinkedList* new_word_positions = LinkedList_Allocate();
+
+    new_word->word = new_str;
+    new_word->positions = new_word_positions;
+    LinkedList_Append(new_word->positions, (LLPayload_t) (int64_t) pos);
+    HTKeyValue_t new_word_kv = {hash_key, new_word};
+    HTKeyValue_t new_word_oldkv;
+    HashTable_Insert(tab, new_word_kv, &new_word_oldkv);
   }
 }
