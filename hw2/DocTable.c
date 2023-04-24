@@ -19,7 +19,12 @@
 
 #define HASHTABLE_INITIAL_NUM_BUCKETS 2
 
-static void Free
+static void HTNoOpFree(HTValue_t payload) { }
+
+static void FreeDocName(HTValue_t payload) {
+  char* doc_name = (char*) payload;
+  free(doc_name);
+}
 
 // This structure represents a DocTable; it contains two hash tables, one
 // mapping from document id to document name, and one mapping from
@@ -45,9 +50,8 @@ void DocTable_Free(DocTable* table) {
   Verify333(table != NULL);
 
   // STEP 1.
-  HashTable_Free(table->id_to_name); // FreePayload should free char*
-  HashTable_Free(table->name_to_id); // FreePayload should not do anything
-
+  HashTable_Free(table->id_to_name, &FreeDocName);
+  HashTable_Free(table->name_to_id, &HTNoOpFree);
   free(table);
 }
 
@@ -67,7 +71,7 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // STEP 2.
   // Check to see if the document already exists.  Then make a copy of the
   // doc_name and allocate space for the new ID.
-
+  //HashTable_Find()
 
 
   *doc_id = table->max_id;
