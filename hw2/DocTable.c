@@ -19,6 +19,8 @@
 
 #define HASHTABLE_INITIAL_NUM_BUCKETS 2
 
+static void Free
+
 // This structure represents a DocTable; it contains two hash tables, one
 // mapping from document id to document name, and one mapping from
 // document name to document id.
@@ -43,8 +45,8 @@ void DocTable_Free(DocTable* table) {
   Verify333(table != NULL);
 
   // STEP 1.
-
-
+  HashTable_Free(table->id_to_name); // FreePayload should free char*
+  HashTable_Free(table->name_to_id); // FreePayload should not do anything
 
   free(table);
 }
