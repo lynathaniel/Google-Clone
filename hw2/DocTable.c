@@ -71,31 +71,34 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // STEP 2.
   // Check to see if the document already exists.  Then make a copy of the
   // doc_name and allocate space for the new ID.
-  HTKey_t hash_key = FNVHash64((unsigned char*) doc_name, strlen(doc_name));
-  bool found = HashTable_Find(table->name_to_id, hash_key, &old_kv);
-  if (found) {
-    return (DocID_t) *old_kv.value;
+  res = DocTable_GetDocID(table, doc_name);
+  if (res != INVALID_DOCID) {
+    return res;
   }
 
   doc_copy = (char*) malloc(strlen(doc_name) + 1);
   Verify333(doc_copy != NULL);
   strncpy(doc_copy, doc_name, strlen(doc_name) + 1);
+  doc_id = (DocID_t*) malloc(sizeof(DocID_t));
+  Verify333(doc_id != NULL);
 
   *doc_id = table->max_id;
   table->max_id++;
 
   // STEP 3.
-  // Set up the key/value for the id->name mapping, and do the insert.
-
-
+  // Set up the key/value for the id->name mapping, and do the inser
+  kv.key = (HTKey_t) *doc_id;
+  kv.value = (HTValue_t) doc_copy;
+  HashTable_Insert(table->id_to_name, kv, &old_kv);
 
   // STEP 4.
   // Set up the key/value for the name->id, and/ do the insert.
   // Be careful about how you calculate the key for this mapping.
   // You want to be sure that how you do this is consistent with
   // the provided code.
-
-
+  kv.key = FNVHash64((unsigned char*) doc_name, strlen(doc_name));
+  kv.value = (HTValue_t) doc_id;
+  HashTable_Insert(table->name_to_id, kv, &old_kv);
 
   return *doc_id;
 }
@@ -110,10 +113,13 @@ DocID_t DocTable_GetDocID(DocTable* table, char* doc_name) {
 
   // STEP 5.
   // Try to find the passed-in doc in name_to_id table.
+  key = FNVHash64((unsigned char*) doc_name, strlen(doc_name));
+  bool found = HashTable_Find(table->name_to_id, key, &kv);
+  if (found) {
+    return *((DocID_t*) kv.value);
+  }
 
-
-
-  return INVALID_DOCID;  // you may want to change this
+  return INVALID_DOCID;
 }
 
 char* DocTable_GetDocName(DocTable* table, DocID_t doc_id) {
@@ -127,10 +133,12 @@ char* DocTable_GetDocName(DocTable* table, DocID_t doc_id) {
   // and either return the string (i.e., the (char *)
   // saved in the value field for that key) or
   // NULL if the key isn't in the table.
+  bool found = HashTable_Find(table->id_to_name, (HTKey_t) doc_id, &kv);
+  if (found) {
+    return (char*) kv.value;
+  }
 
-
-
-  return NULL;  // you may want to change this
+  return NULL;
 }
 
 HashTable* DT_GetIDToNameTable(DocTable* table) {
