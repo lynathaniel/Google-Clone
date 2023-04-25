@@ -19,8 +19,15 @@
 
 #define HASHTABLE_INITIAL_NUM_BUCKETS 2
 
-static void HTNoOpFree(HTValue_t payload) { }
+// Deallocation function used for freeing the values
+// within the name_to_id table.
+static void FreeDocId(HTValue_t payload) {
+  DocID_t* doc_id = (DocID_t*) payload;
+  free(doc_id);
+}
 
+// Deallocation function used for freeing the values
+// within the id_to_name table.
 static void FreeDocName(HTValue_t payload) {
   char* doc_name = (char*) payload;
   free(doc_name);
@@ -51,7 +58,7 @@ void DocTable_Free(DocTable* table) {
 
   // STEP 1.
   HashTable_Free(table->id_to_name, &FreeDocName);
-  HashTable_Free(table->name_to_id, &HTNoOpFree);
+  HashTable_Free(table->name_to_id, &FreeDocId);
   free(table);
 }
 
