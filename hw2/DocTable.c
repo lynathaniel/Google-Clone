@@ -71,8 +71,15 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   // STEP 2.
   // Check to see if the document already exists.  Then make a copy of the
   // doc_name and allocate space for the new ID.
-  //HashTable_Find()
+  HTKey_t hash_key = FNVHash64((unsigned char*) doc_name, strlen(doc_name));
+  bool found = HashTable_Find(table->name_to_id, hash_key, &old_kv);
+  if (found) {
+    return (DocID_t) *old_kv.value;
+  }
 
+  doc_copy = (char*) malloc(strlen(doc_name) + 1);
+  Verify333(doc_copy != NULL);
+  strncpy(doc_copy, doc_name, strlen(doc_name) + 1);
 
   *doc_id = table->max_id;
   table->max_id++;
