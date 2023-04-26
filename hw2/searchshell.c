@@ -25,9 +25,16 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // Helper function declarations, constants, etc
+#define MAX_QUERY_WORDS 255
+#define MAX_QUERY_LENGTH 1024
+
 static void Usage(void);
 static void ProcessQueries(DocTable* dt, MemIndex* mi);
 static int GetNextLine(FILE* f, char** ret_str);
+
+static void LLPayloadFree(LLPayload_t payload) {
+  free(payload);
+ }
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -54,7 +61,63 @@ int main(int argc, char** argv) {
   // Note that you should make sure the fomatting of your
   // searchshell output exactly matches our solution binaries
   // to get full points on this part.
-  return EXIT_SUCCESS;
+  DocTable* doctable;
+  MemIndex* memindex;
+  char* dir_path = argv[1];
+  printf("Indexing '%s'\n", dir_path);
+  if (!CrawlFileTree(dir_path, &doctable, &memindex)) {
+    fprintf(stderr, "Could not open directory.\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // while user has not done ctrl-d
+  while (1) {
+    char input[MAX_QUERY_LENGTH];
+    int test_input;
+    printf("enter query:\n");
+    if (!fgets(input, sizeof(input), stdin)) {
+      fprintf(stderr, "Could not process query.\n");
+      exit(EXIT_FAILURE);
+    }
+
+    // If a number is passed in to the input, fail.
+    if (sscanf("%d", &test_input) == 1) {
+      fprintf(stderr,"Invalid input.\n");
+      exit(EXIT_FAILURE);
+    }
+
+    input[strcspn(input, "\n")] = 0;
+
+    char* query_split[MAX_QUERY_LENGTH];
+    int num_words = 0;
+    char* word;
+    char* input_copy = input;
+    while ((word = strtok_r(input_copy, " ", &input_copy)) != NULL) {
+      query_split[num_words] = word;
+      num_words++;
+    }
+    
+    LinkedList* results;
+    LLIterator* lit;
+
+    results = MemIndex_Search(memindex, query_split, num_words);
+    lit = LLIterator_Allocate(results);
+    for (int i = 0; i < LinkedList_NumElements(results); i++) {
+      SearchResult* res;
+
+      LLIterator_Get(lit, (LLPayload_t*) &res);
+      char* doc_name = DocTable_GetDocName(doctable, res->doc_id);
+      printf("  %s (%d)\n", doc_name, res->rank);
+      LLIterator_Next(lit);
+    }
+
+    // free results
+    LinkedList_Free(results, LLPayloadFree);
+  }
+
+  // free memindex, doctable
+  DocTable_Free(doctable);
+  MemIndex_Free(memindex);
 }
 
 

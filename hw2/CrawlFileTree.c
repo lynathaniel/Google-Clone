@@ -193,12 +193,13 @@ static void HandleDir(char* dir_path, DIR* d, DocTable** doc_table,
       // If it is neither, skip the file.
       if (S_ISREG(st.st_mode)) {
         entries[i].is_dir = false;
-        i++;
+  
       }
 
       if (S_ISDIR(st.st_mode)) {
         entries[i].is_dir = true;
       }
+      i++;
     }
     dirent = readdir(d);
   }  // end iteration over directory contents ("first pass").
@@ -235,7 +236,8 @@ static void HandleFile(char* file_path, DocTable** doc_table,
   // STEP 4.
   // Invoke ParseIntoWordPositionsTable() to build the word hashtable out
   // of the file.
-  tab = ParseIntoWordPositionsTable(ReadFileToString(file_path, &file_len));
+  char* file_contents = ReadFileToString(file_path, &file_len);
+  tab = ParseIntoWordPositionsTable(file_contents);
   if (tab == NULL) {
     return;
   }
