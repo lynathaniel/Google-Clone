@@ -98,7 +98,6 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
   // STEP 1.
   // Remove this early return.  We added this in here so that your unittests
   // would pass even if you haven't finished your MemIndex implementation.
-  return;
 
 
   // First, we have to see if the passed-in word already exists in
@@ -115,8 +114,11 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
     //       mapping.
     //   (3) insert the the new WordPostings into the inverted index (ie, into
     //       the "index" table).
+    wp = (WordPostings*) malloc(sizeof(HashTable*));
+    wp->word = word;
+    wp->postings = HashTable_Allocate(1);
 
-
+    
 
   } else {
     // Yes, this word already exists in the inverted index.  There's no need
