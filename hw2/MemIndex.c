@@ -118,7 +118,9 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
     wp->word = word;
     wp->postings = HashTable_Allocate(1);
 
-    
+    mi_kv.key = key;
+    mi_kv.value = (HTValue_t) wp;
+    HashTable_Insert(index, mi_kv, &unused);
 
   } else {
     // Yes, this word already exists in the inverted index.  There's no need
@@ -146,7 +148,11 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
   // Insert a new entry into the wp->postings hash table.
   // The entry's key is this docID and the entry's value
   // is the "postings" (ie, word positions list) we were passed
-  // as an argument.
+  // as an argument.   
+  
+  postings_kv.key = (HTKey_t) doc_id;
+  postings_kv.value = (HTValue_t) postings;
+  HashTable_Insert(wp->postings, postings_kv, &unused);
 }
 
 LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
@@ -170,7 +176,19 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
   // structure (the initial computed rank is the number of times the word
   // appears in that document).  Finally, append the SearchResult onto ret_list.
 
-
+  key = FNVHash64((unsigned char*) query[0], strlen(query[0]));
+  ret_list = LinkedList_Allocate();
+  if (HashTable_Find(index, key, &kv)) {
+    wp = (WordPostings*) &kv;
+    HTIterator* it = HTIterator_Allocate(wp->postings);
+    while (HTIterator_IsValid(it)) {
+      HTIterator_Get(it, &kv);
+      SearchResult* sr = (SearchResult*) malloc(sizeof(SearchResult));
+      sr->doc_id = (DocID_t) kv.key;
+      sr->rank = LinkedList_NumElements((LinkedList*) kv.value);
+      HTIterator_Next(it);
+    }
+  }
 
   // Great; we have our search results for the first query
   // word.  If there is only one query word, we're done!
