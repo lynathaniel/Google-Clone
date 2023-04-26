@@ -132,19 +132,26 @@ static void HandleDir(char* dir_path, DIR* d, DocTable** doc_table,
   // Change/add to this loop to use the "readdir()" system call to
   // read the directory entries in the loop ("man 3 readdir").
   // Exit out of the loop when we reach the end of the directory.
-  for (i = 0 ; false; i++) {
+  dirent = readdir(d);
+  i = 0;
+  while (dirent != NULL) {
     // STEP 2.
     // If the directory entry is named "." or "..", ignore it.  Use the C
     // "continue" expression to begin the next iteration of the loop.  What
     // field in the dirent could we use to find out the name of the entry?
     // How do you compare strings in C?
-
-
+    if (strcmp(dirent->d_name, ".") == 0 ||
+        strcmp(dirent->d_name, "..") == 0) {
+      dirent = readdir(d);
+      continue;
+    }
+    
     //
     // Record the name and directory status.
     //
 
     // Resize the entries array if it's too small.
+
     if (i == entries_capacity) {
       entries_capacity *= 2;
       entries = (struct entry_st*)
@@ -184,7 +191,16 @@ static void HandleDir(char* dir_path, DIR* d, DocTable** doc_table,
       // using/ HandleDir() in our second pass.
       //
       // If it is neither, skip the file.
+      if (S_ISREG(st.st_mode)) {
+        entries[i].is_dir = false;
+        i++;
+      }
+
+      if (S_ISDIR(st.st_mode)) {
+        entries[i].is_dir = true;
+      }
     }
+    dirent = readdir(d);
   }  // end iteration over directory contents ("first pass").
 
   // Sort the directory's metadata alphabetically.
@@ -219,13 +235,11 @@ static void HandleFile(char* file_path, DocTable** doc_table,
   // STEP 4.
   // Invoke ParseIntoWordPositionsTable() to build the word hashtable out
   // of the file.
-
-
+  tab = ParseIntoWordPositionsTable(ReadFileToString(file_path, &file_len));
 
   // STEP 5.
   // Invoke DocTable_Add() to register the new file with the doc_table.
-
-
+  doc_id = DocTable_Add(*doc_table, file_path);
 
   // Loop through the newly-built hash table.
   it = HTIterator_Allocate(tab);
@@ -238,8 +252,9 @@ static void HandleFile(char* file_path, DocTable** doc_table,
     // Use HTIterator_Remove() to extract the next WordPositions structure out
     // of the hashtable. Then, use MemIndex_AddPostingList() to add the word,
     // document ID, and positions linked list into the inverted index.
-
-
+    bool removed = HTIterator_Remove(it, &kv);
+    wp = (WordPositions*) kv.value;
+    MemIndex_AddPostingList(*index, wp->word, doc_id, wp->positions);
 
     // Since we've transferred ownership of the memory associated with both
     // the "word" and "positions" field of this WordPositions structure, and
