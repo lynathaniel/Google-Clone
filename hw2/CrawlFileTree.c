@@ -145,7 +145,7 @@ static void HandleDir(char* dir_path, DIR* d, DocTable** doc_table,
       dirent = readdir(d);
       continue;
     }
-    
+
     //
     // Record the name and directory status.
     //
@@ -239,7 +239,7 @@ static void HandleFile(char* file_path, DocTable** doc_table,
   if (tab == NULL) {
     return;
   }
-  
+
   // STEP 5.
   // Invoke DocTable_Add() to register the new file with the doc_table.
   doc_id = DocTable_Add(*doc_table, file_path);
