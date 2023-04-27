@@ -30,11 +30,11 @@
 
 static void Usage(void);
 static void ProcessQueries(DocTable* dt, MemIndex* mi);
-static int GetNextLine(FILE* f, char** ret_str);
 static void NormalizeString(char* str);
 
-static void LLPayloadFree(LLPayload_t payload) {
-  free(payload);
+static void FreeSearchResult(LLPayload_t payload) {
+  SearchResult* sr = (SearchResult*) payload;
+  free(sr);
  }
 
 
@@ -81,8 +81,6 @@ int main(int argc, char** argv) {
       DocTable_Free(doctable);
       MemIndex_Free(memindex);
       exit(EXIT_SUCCESS);
-      // fprintf(stderr, "Could not process query.\n");
-      // exit(EXIT_FAILURE);
     }
 
     // If a number is passed in to the input, fail.
@@ -92,9 +90,6 @@ int main(int argc, char** argv) {
     }
 
     NormalizeString(input);
-
-    input[strcspn(input, "\n")] = 0;
-
     char** query_split = (char**) malloc(sizeof(char*) * 1024);
     Verify333(query_split != NULL);
 
@@ -126,12 +121,8 @@ int main(int argc, char** argv) {
     free(query_split);
     LLIterator_Free(lit);
     // free results
-    LinkedList_Free(results, LLPayloadFree);
+    LinkedList_Free(results, FreeSearchResult);
   }
-  DocTable_Free(doctable);
-  MemIndex_Free(memindex);
-
-  return EXIT_SUCCESS;
 }
 
 
@@ -149,12 +140,10 @@ static void Usage(void) {
 static void ProcessQueries(DocTable* dt, MemIndex* mi) {
 }
 
-static int GetNextLine(FILE *f, char **ret_str) {
-  return -1;  // you may want to change this
-}
-
 static void NormalizeString(char* str) {
   for (int i = 0; str[i]; i++) {
     str[i] = tolower(str[i]);
   }
+
+  str[strcspn(str, "\n")] = 0;
 }

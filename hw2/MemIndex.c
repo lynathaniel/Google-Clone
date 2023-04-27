@@ -118,8 +118,7 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
     Verify333(wp != NULL);
 
     wp->word = word;
-    wp->postings = HashTable_Allocate(32);
-    Verify333(wp->postings != NULL);
+    wp->postings = HashTable_Allocate(1);
 
     mi_kv.key = key;
     mi_kv.value = (HTValue_t) wp;
@@ -177,7 +176,6 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
   // each document that matches, allocate and initialize a SearchResult
   // structure (the initial computed rank is the number of times the word
   // appears in that document).  Finally, append the SearchResult onto ret_list.
-
   key = FNVHash64((unsigned char*) query[0], strlen(query[0]));
 
   ret_list = LinkedList_Allocate();
@@ -244,6 +242,7 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
     // number of matches for the current word.
     //
     // If it isn't, we delete that docID from the search result list.
+    LLPayload_t payload;
     HashTable* postings = ((WordPostings*) kv.value)->postings;
 
     // Create iterator to compare current docIDs
@@ -253,7 +252,6 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
     num_docs = LinkedList_NumElements(ret_list);
     for (j = 0; j < num_docs; j++) {
       // Retrieve searchresult
-      LLPayload_t payload;
       LLIterator_Get(ll_it, &payload);
       SearchResult* sr = (SearchResult*) payload;
 
