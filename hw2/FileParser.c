@@ -222,17 +222,25 @@ static void InsertContent(HashTable* tab, char* content) {
   // AddWordPosition() helper with appropriate arguments, e.g.,
   // AddWordPosition(tab, wordstart, pos);
   bool new_word = true;
+  // Traverse file contents until EOF
   while (*cur_ptr != '\0') {
+    // Build found alpha-constrained word
     if (isalpha(*cur_ptr)) {
       *cur_ptr = tolower(*cur_ptr);
+      // Set the start of the word if a new first-character is found
       if (new_word) {
         word_start = cur_ptr;
         new_word = false;
       }
     } else if (!new_word) {
+      // Set null terminator 
       *cur_ptr = '\0';
-      new_word = true;
+
+      // Add word to table
       AddWordPosition(tab, word_start, word_start - content);
+
+      // Reset indicators
+      new_word = true;
       word_start = NULL;
     }
     cur_ptr++;
