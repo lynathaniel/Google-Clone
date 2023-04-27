@@ -221,18 +221,19 @@ static void InsertContent(HashTable* tab, char* content) {
   // Each time you find a word that you want to record in the hashtable, call
   // AddWordPosition() helper with appropriate arguments, e.g.,
   // AddWordPosition(tab, wordstart, pos);
-
+  bool new_word = true;
   while (*cur_ptr != '\0') {
     if (isalpha(*cur_ptr)) {
       *cur_ptr = tolower(*cur_ptr);
-      word_start = cur_ptr;
-      cur_ptr++;
-      while (isalpha(*cur_ptr)) {
-        *cur_ptr = tolower(*cur_ptr);
-        cur_ptr++;
+      if (new_word) {
+        word_start = cur_ptr;
+        new_word = false;
       }
+    } else if (!new_word) {
       *cur_ptr = '\0';
+      new_word = true;
       AddWordPosition(tab, word_start, word_start - content);
+      word_start = NULL;
     }
     cur_ptr++;
   }  // end while-loop
@@ -274,13 +275,13 @@ static void AddWordPosition(HashTable* tab, char* word,
     strncpy(new_str, word, strlen(word) + 1);
 
     // Create new WordPositions and set its word and linked list of positions.
-    WordPositions* new_word = (WordPositions*) malloc(sizeof(WordPositions));
-    Verify333(new_word != NULL);
-    new_word->word = new_str;
-    new_word->positions = LinkedList_Allocate();
+    wp = (WordPositions*) malloc(sizeof(WordPositions));
+    Verify333(wp != NULL);
+    wp->word = new_str;
+    wp->positions = LinkedList_Allocate();
 
-    LinkedList_Append(new_word->positions, (LLPayload_t) (int64_t) pos);
-    HTKeyValue_t new_word_kv = {hash_key, new_word};
+    LinkedList_Append(wp->positions, (LLPayload_t) (int64_t) pos);
+    HTKeyValue_t new_word_kv = {hash_key, wp};
     HTKeyValue_t new_word_oldkv;
     HashTable_Insert(tab, new_word_kv, &new_word_oldkv);
   }

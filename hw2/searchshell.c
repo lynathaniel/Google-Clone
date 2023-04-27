@@ -31,6 +31,7 @@
 static void Usage(void);
 static void ProcessQueries(DocTable* dt, MemIndex* mi);
 static int GetNextLine(FILE* f, char** ret_str);
+static void NormalizeString(char* str);
 
 static void LLPayloadFree(LLPayload_t payload) {
   free(payload);
@@ -73,7 +74,6 @@ int main(int argc, char** argv) {
   // while user has not done ctrl-d
   while (1) {
     char input[MAX_QUERY_LENGTH];
-    int test_input;
     printf("enter query:\n");
     if (!fgets(input, sizeof(input), stdin)) {
       // free memindex, doctable
@@ -86,10 +86,13 @@ int main(int argc, char** argv) {
     }
 
     // If a number is passed in to the input, fail.
-    if (sscanf("%d", &test_input) == 1) {
+    if (sscanf("%d", &input) == 1) {
       fprintf(stderr,"Invalid input.\n");
       exit(EXIT_FAILURE);
     }
+
+    NormalizeString(input);
+
     input[strcspn(input, "\n")] = 0;
 
     char** query_split = (char**) malloc(sizeof(char*) * 1024);
@@ -108,7 +111,6 @@ int main(int argc, char** argv) {
 
     results = MemIndex_Search(memindex, query_split, num_words);
     if (results == NULL) {
-      printf("no results found\n");
       free(query_split);
       continue;
     }
@@ -128,6 +130,8 @@ int main(int argc, char** argv) {
   }
   DocTable_Free(doctable);
   MemIndex_Free(memindex);
+
+  return EXIT_SUCCESS;
 }
 
 
@@ -147,4 +151,10 @@ static void ProcessQueries(DocTable* dt, MemIndex* mi) {
 
 static int GetNextLine(FILE *f, char **ret_str) {
   return -1;  // you may want to change this
+}
+
+static void NormalizeString(char* str) {
+  for (int i = 0; str[i]; i++) {
+    str[i] = tolower(str[i]);
+  }
 }
