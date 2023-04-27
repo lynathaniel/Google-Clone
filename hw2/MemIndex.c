@@ -21,6 +21,8 @@
 #include "libhw1/HashTable.h"
 #include "libhw1/LinkedList.h"
 
+#define DEFUALT_POSTINGS_CAPACITY 1
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Internal-only helpers
@@ -118,7 +120,7 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
     Verify333(wp != NULL);
 
     wp->word = word;
-    wp->postings = HashTable_Allocate(1);
+    wp->postings = HashTable_Allocate(DEFUALT_POSTINGS_CAPACITY);
 
     mi_kv.key = key;
     mi_kv.value = (HTValue_t) wp;
@@ -185,7 +187,8 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
     // Retrieve wordpostings
     wp = (WordPostings*) kv.value;
     HTIterator* it = HTIterator_Allocate(wp->postings);
-    while (HTIterator_IsValid(it)) {
+    int size = LinkedList_NumElements(wp->postings);
+    for (int i = 0; i < size; i++) {
       HTIterator_Get(it, &kv);
 
       // Allocate a new searchresult
