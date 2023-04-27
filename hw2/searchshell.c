@@ -29,13 +29,30 @@
 #define MAX_QUERY_LENGTH 1024
 
 static void Usage(void);
-static void ProcessQueries(DocTable* dt, MemIndex* mi);
+
+// Processes a query to the inverted index.
+//
+// Arguments:
+// - dt: the DocTable created from the root directory.
+// - mi: the MemIndex created from the root directory.
+
+// Returns:
+// - NULL: if no matching documents were found
+// - a non-NULL LinkedList of SearchResult's
+static LinkedList* ProcessQueries(DocTable* dt, MemIndex* mi);
+
+// Converts a string to lower-case and removes the newline.
+//
+// Arguments:
+// - str: the string to normalized.
 static void NormalizeString(char* str);
 
+// Deallocation function usable in LinkedList_Free(). Used to
+// free the list of SearchResult's returned by ProcessQueries.
 static void FreeSearchResult(LLPayload_t payload) {
   SearchResult* sr = (SearchResult*) payload;
   free(sr);
- }
+}
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -64,67 +81,39 @@ int main(int argc, char** argv) {
   // to get full points on this part.
   DocTable* doctable;
   MemIndex* memindex;
+  LinkedList* results;
+  LLIterator* results_itr;
+  SearchResult* res;
   char* dir_path = argv[1];
+
+  // Go through the file tree, and populate our inverted index.
   printf("Indexing '%s'\n", dir_path);
   if (!CrawlFileTree(dir_path, &doctable, &memindex)) {
     fprintf(stderr, "Could not open directory.\n");
     exit(EXIT_FAILURE);
   }
 
-  // while user has not done ctrl-d
-  while (1) {
-    char input[MAX_QUERY_LENGTH];
-    printf("enter query:\n");
-    if (!fgets(input, sizeof(input), stdin)) {
-      // free memindex, doctable
-      printf("shutting down...\n");
-      DocTable_Free(doctable);
-      MemIndex_Free(memindex);
-      exit(EXIT_SUCCESS);
-    }
-
-    // If a number is passed in to the input, fail.
-    if (sscanf("%d", &input) == 1) {
-      fprintf(stderr,"Invalid input.\n");
-      exit(EXIT_FAILURE);
-    }
-
-    NormalizeString(input);
-    char** query_split = (char**) malloc(sizeof(char*) * 1024);
-    Verify333(query_split != NULL);
-
-    int num_words = 0;
-    char* word;
-    char* input_copy = input;
-    while ((word = strtok_r(input_copy, " ", &input_copy)) != NULL) {
-      query_split[num_words] = word;
-      num_words++;
-    }
-    
-    LinkedList* results;
-    LLIterator* lit;
-
-    results = MemIndex_Search(memindex, query_split, num_words);
+  // Keep reading until the user has passed in EoF to stdin.
+  while (true) {
+    results = ProcessQueries(doctable, memindex);
     if (results == NULL) {
-      free(query_split);
       continue;
     }
-    lit = LLIterator_Allocate(results);
+
+    // Print out results for user.
+    results_itr = LLIterator_Allocate(results);
     for (int i = 0; i < LinkedList_NumElements(results); i++) {
-      SearchResult* res;
-      
-      LLIterator_Get(lit, (LLPayload_t*) &res);
+      LLIterator_Get(results_itr, (LLPayload_t*) &res);
       char* doc_name = DocTable_GetDocName(doctable, res->doc_id);
       printf("  %s (%d)\n", doc_name, res->rank);
-      LLIterator_Next(lit);
+      LLIterator_Next(results_itr);
     }
-    free(query_split);
-    LLIterator_Free(lit);
-    // free results
+
+    // Free results for the next query to be handled.
+    LLIterator_Free(results_itr);
     LinkedList_Free(results, FreeSearchResult);
   }
 }
-
 
 //////////////////////////////////////////////////////////////////////////////
 // Helper function definitions
@@ -137,7 +126,39 @@ static void Usage(void) {
   exit(EXIT_FAILURE);
 }
 
-static void ProcessQueries(DocTable* dt, MemIndex* mi) {
+static LinkedList* ProcessQueries(DocTable* dt, MemIndex* mi) {
+  char input[MAX_QUERY_LENGTH];
+  char* word;
+  LinkedList* results;
+
+  printf("enter query:\n");
+  if (!fgets(input, sizeof(input), stdin)) {
+    // The user has passed in EoF, free all relevant memory.
+    printf("shutting down...\n");
+    DocTable_Free(dt);
+    MemIndex_Free(mi);
+    exit(EXIT_SUCCESS);
+  }
+
+  // If the user has passed in any numbers, fail.
+  if (sscanf("%d", &input) == 1) {
+    return NULL;
+  }
+
+  NormalizeString(input);
+  char** query_split = (char**) malloc(sizeof(char*) * 1024);
+  Verify333(query_split != NULL);
+
+  int num_words = 0;
+  char* input_copy = input;
+  while ((word = strtok_r(input_copy, " ", &input_copy)) != NULL) {
+    query_split[num_words] = word;
+    num_words++;
+  }
+
+  results = MemIndex_Search(mi, query_split, num_words);
+  free(query_split);
+  return results;
 }
 
 static void NormalizeString(char* str) {
