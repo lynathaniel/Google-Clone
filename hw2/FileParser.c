@@ -233,7 +233,7 @@ static void InsertContent(HashTable* tab, char* content) {
         new_word = false;
       }
     } else if (!new_word) {
-      // Set null terminator 
+      // Set null terminator
       *cur_ptr = '\0';
 
       // Add word to table

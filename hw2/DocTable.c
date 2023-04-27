@@ -89,7 +89,7 @@ DocID_t DocTable_Add(DocTable* table, char* doc_name) {
   strncpy(doc_copy, doc_name, strlen(doc_name) + 1);
   doc_id = (DocID_t*) malloc(sizeof(DocID_t));
   Verify333(doc_id != NULL);
-  
+
   *doc_id = table->max_id;
   table->max_id++;
 
