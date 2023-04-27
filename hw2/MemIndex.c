@@ -187,8 +187,7 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
     // Retrieve wordpostings
     wp = (WordPostings*) kv.value;
     HTIterator* it = HTIterator_Allocate(wp->postings);
-    int size = LinkedList_NumElements(wp->postings);
-    for (int i = 0; i < size; i++) {
+    while (HTIterator_IsValid(it)) {
       HTIterator_Get(it, &kv);
 
       // Allocate a new searchresult
