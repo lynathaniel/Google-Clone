@@ -115,8 +115,11 @@ void MemIndex_AddPostingList(MemIndex* index, char* word, DocID_t doc_id,
     //   (3) insert the the new WordPostings into the inverted index (ie, into
     //       the "index" table).
     wp = (WordPostings*) malloc(sizeof(WordPostings));
+    Verify333(wp != NULL);
+
     wp->word = word;
-    wp->postings = HashTable_Allocate(1);
+    wp->postings = HashTable_Allocate(32);
+    Verify333(wp->postings != NULL);
 
     mi_kv.key = key;
     mi_kv.value = (HTValue_t) wp;
@@ -241,7 +244,6 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
     // number of matches for the current word.
     //
     // If it isn't, we delete that docID from the search result list.
-    LLPayload_t payload;
     HashTable* postings = ((WordPostings*) kv.value)->postings;
 
     // Create iterator to compare current docIDs
@@ -251,6 +253,7 @@ LinkedList* MemIndex_Search(MemIndex* index, char* query[], int query_len) {
     num_docs = LinkedList_NumElements(ret_list);
     for (j = 0; j < num_docs; j++) {
       // Retrieve searchresult
+      LLPayload_t payload;
       LLIterator_Get(ll_it, &payload);
       SearchResult* sr = (SearchResult*) payload;
 

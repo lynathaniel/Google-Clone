@@ -76,8 +76,13 @@ int main(int argc, char** argv) {
     int test_input;
     printf("enter query:\n");
     if (!fgets(input, sizeof(input), stdin)) {
-      fprintf(stderr, "Could not process query.\n");
-      exit(EXIT_FAILURE);
+      // free memindex, doctable
+      printf("shutting down...\n");
+      DocTable_Free(doctable);
+      MemIndex_Free(memindex);
+      exit(EXIT_SUCCESS);
+      // fprintf(stderr, "Could not process query.\n");
+      // exit(EXIT_FAILURE);
     }
 
     // If a number is passed in to the input, fail.
@@ -85,10 +90,11 @@ int main(int argc, char** argv) {
       fprintf(stderr,"Invalid input.\n");
       exit(EXIT_FAILURE);
     }
-
     input[strcspn(input, "\n")] = 0;
 
-    char* query_split[MAX_QUERY_LENGTH];
+    char** query_split = (char**) malloc(sizeof(char*) * 1024);
+    Verify333(query_split != NULL);
+
     int num_words = 0;
     char* word;
     char* input_copy = input;
@@ -101,21 +107,25 @@ int main(int argc, char** argv) {
     LLIterator* lit;
 
     results = MemIndex_Search(memindex, query_split, num_words);
+    if (results == NULL) {
+      printf("no results found\n");
+      free(query_split);
+      continue;
+    }
     lit = LLIterator_Allocate(results);
     for (int i = 0; i < LinkedList_NumElements(results); i++) {
       SearchResult* res;
-
+      
       LLIterator_Get(lit, (LLPayload_t*) &res);
       char* doc_name = DocTable_GetDocName(doctable, res->doc_id);
       printf("  %s (%d)\n", doc_name, res->rank);
       LLIterator_Next(lit);
     }
-
+    free(query_split);
+    LLIterator_Free(lit);
     // free results
     LinkedList_Free(results, LLPayloadFree);
   }
-
-  // free memindex, doctable
   DocTable_Free(doctable);
   MemIndex_Free(memindex);
 }
