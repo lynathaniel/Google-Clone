@@ -13,6 +13,7 @@
 
 #include <cstdio>    // for (FILE*).
 #include <cstring>   // for strlen(), etc.
+#include <cctype>
 
 // We need to peek inside the implementation of a HashTable so
 // that we can iterate through its buckets and their chain elements.
@@ -27,7 +28,6 @@ namespace hw3 {
 //////////////////////////////////////////////////////////////////////////////
 // Helper function declarations and constants
 
-#define DOCTABLE_OFFSET 16
 #define READBUFSIZE 128
 
 static constexpr int kFailedWrite = -1;
@@ -200,6 +200,7 @@ int WriteIndex(MemIndex* mi, DocTable* dt, const char* file_name) {
     unlink(file_name);
     return kFailedWrite;
   }
+  cur_pos += h_bytes;
 
   // Clean up and return the total amount written.
   fclose(f);
@@ -237,7 +238,10 @@ static int WriteHeader(FILE* f, int doctable_bytes, int memidx_bytes) {
   CRC32 crc;
   char buf[READBUFSIZE];
   size_t readlen;
-  fseek(f, DOCTABLE_OFFSET, SEEK_SET);
+
+  if (fseek(f, sizeof(IndexFileHeader), SEEK_SET) != 0) {
+    return kFailedWrite;
+  }
 
   // Read from the beginning of the doctable to the end of the file.
   while ((readlen = fread(buf, 1, READBUFSIZE, f)) > 0) {
@@ -302,10 +306,18 @@ static int WriteHashTable(FILE* f, IndexFileOffset_t offset, HashTable* ht,
   for (int i = 0; i < ht->num_buckets; i++) {
     // STEP 4.
     LinkedList* curr_bucket = ht->buckets[i];
-    WriteHTBucketRecord(f, record_pos + (i * sizeof(BucketRecord)),
+    if (WriteHTBucketRecord(f, record_pos + (i * sizeof(BucketRecord)),
                         LinkedList_NumElements(curr_bucket),
-                        bucket_pos);
-    bucket_pos += WriteHTBucket(f, bucket_pos, curr_bucket, fn);
+                        bucket_pos) == kFailedWrite) {
+      return kFailedWrite;
+    }
+
+    int writebucket_res = WriteHTBucket(f, bucket_pos, curr_bucket, fn);
+    if (writebucket_res == kFailedWrite) {
+      return kFailedWrite;
+    } else {
+      bucket_pos += writebucket_res;
+    }
   }
 
   // Calculate and return the total number of bytes written.
@@ -365,12 +377,14 @@ static int WriteHTBucket(FILE* f, IndexFileOffset_t offset, LinkedList* li,
     // fseek() to the where the ElementPositionRecord should be written,
     // then fwrite() it in network order.
     if (fseek(f, record_pos, SEEK_SET) != 0) {
+      LLIterator_Free(it);
       return kFailedWrite;
     }
     ElementPositionRecord curr_er(element_pos);
     curr_er.ToDiskFormat();
 
-    if (fwrite(&curr_er, sizeof(ElementPositionRecord), 1, f) != 1) { 
+    if (fwrite(&curr_er, sizeof(ElementPositionRecord), 1, f) != 1) {
+      LLIterator_Free(it);
       return kFailedWrite;
     }
 
@@ -380,6 +394,10 @@ static int WriteHTBucket(FILE* f, IndexFileOffset_t offset, LinkedList* li,
     LLIterator_Get(it, &element);
     int element_size = fn(f, element_pos, 
                           static_cast<HTKeyValue_t*>(element));
+    if (element_size == kFailedWrite) {
+      LLIterator_Free(it);
+      return kFailedWrite;
+    }
 
     // Advance to the next element in the chain, updating our offsets.
     record_pos += sizeof(ElementPositionRecord);
@@ -422,8 +440,12 @@ static int WriteDocidToDocnameFn(FILE* f, IndexFileOffset_t offset,
   // fwrite() the file name.  We don't write the null-terminator from the
   // string, just the characters, since we've already written a length
   // field for the string.
-  if (fwrite(&file_name, file_name_bytes, 1, f) != 1) { 
-    return kFailedWrite;
+  for (int i = 0; i < file_name_bytes; i++) {
+    if (isascii(file_name[i])) {
+      if (fwrite(&file_name[i], 1, 1, f) != 1) { 
+        return kFailedWrite;
+      }
+    }
   }
 
   // STEP 11.
@@ -453,21 +475,25 @@ static int WriteDocIDToPositionListFn(FILE* f,
     return kFailedWrite;
   }
 
+  if (fwrite(&curr_doc_id, sizeof(curr_doc_id), 1, f) != 1) { 
+    return kFailedWrite;
+  }
+
   // Loop through the positions list, writing each position out.
-  DocIDElementPosition position;
   LLIterator* it = LLIterator_Allocate(positions);
   Verify333(it != nullptr);
   for (int i = 0; i < num_positions; i++) {
     // STEP 13.
     // Get the next position from the list.
-    LLPayload_t doc_pos;
-    LLIterator_Get(it, &doc_pos);
-    
+    LLPayload_t payload;
+    LLIterator_Get(it, reinterpret_cast<LLPayload_t*>(&payload));
+
     // STEP 14.
     // Truncate to 32 bits, then convert it to network order and write it out.
-    position.position = *reinterpret_cast<DocPositionOffset_t*>(&doc_pos);
+    DocIDElementPosition position((intptr_t) payload);
     position.ToDiskFormat();
-    if (fwrite(&position, sizeof(DocIDElementPosition), 1, f) != 1) { 
+    if (fwrite(&position, sizeof(DocIDElementPosition), 1, f) != 1) {
+      LLIterator_Free(it);
       return kFailedWrite;
     }
 
