@@ -471,6 +471,7 @@ static int WriteDocIDToPositionListFn(FILE* f,
   // Write the header, in disk format.
   // You'll need to fseek() to the right location in the file.
   DocIDElementHeader curr_doc_id(doc_id, num_positions);
+  curr_doc_id.ToDiskFormat();
   if (fseek(f, offset, SEEK_SET) != 0) {
     return kFailedWrite;
   }
@@ -486,11 +487,11 @@ static int WriteDocIDToPositionListFn(FILE* f,
     // STEP 13.
     // Get the next position from the list.
     LLPayload_t payload;
-    LLIterator_Get(it, reinterpret_cast<LLPayload_t*>(&payload));
+    LLIterator_Get(it, &payload);
 
     // STEP 14.
     // Truncate to 32 bits, then convert it to network order and write it out.
-    DocIDElementPosition position((intptr_t) payload);
+    DocIDElementPosition position(*reinterpret_cast<DocPositionOffset_t*>(&payload));
     position.ToDiskFormat();
     if (fwrite(&position, sizeof(DocIDElementPosition), 1, f) != 1) {
       LLIterator_Free(it);
