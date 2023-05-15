@@ -69,7 +69,7 @@ HashTableReader::LookupElementPositions(HTKey_t hash_key) const {
   Verify333(fseek(file_, bucket_rec.position, SEEK_SET) == 0);
   for (int32_t i = 0; i < bucket_rec.chain_num_elements; i++) {
     ElementPositionRecord curr_pos;
-    Verify333(fread(&curr_pos, sizeof(curr_pos), 1, file_) == 1);
+    Verify333(fread(&curr_pos, sizeof(ElementPositionRecord), 1, file_) == 1);
     curr_pos.ToHostFormat();
     ret_val.push_back(curr_pos.position);
   }
