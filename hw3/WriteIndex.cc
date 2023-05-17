@@ -38,7 +38,7 @@ static constexpr int kFailedWrite = -1;
 static int WriteDocTable(FILE* f, DocTable* dt, IndexFileOffset_t offset);
 
 // Helper function to write the MemIndex `mi` into file `f`, starting
-// at byte offset `offset`. 
+// at byte offset `offset`.
 // Returns the size of the written MemIndex or a negative value on error.
 static int WriteMemIndex(FILE* f, MemIndex* mi, IndexFileOffset_t offset);
 
@@ -339,7 +339,7 @@ static int WriteHTBucketRecord(FILE* f, IndexFileOffset_t offset,
 
   // STEP 6.
   // Write the BucketRecord.
-  if (fwrite(&curr_br, sizeof(BucketRecord), 1, f) != 1) { 
+  if (fwrite(&curr_br, sizeof(BucketRecord), 1, f) != 1) {
     return kFailedWrite;
   }
 
@@ -392,7 +392,7 @@ static int WriteHTBucket(FILE* f, IndexFileOffset_t offset, LinkedList* li,
     // Write the element itself, using fn.
     LLPayload_t element;
     LLIterator_Get(it, &element);
-    int element_size = fn(f, element_pos, 
+    int element_size = fn(f, element_pos,
                           static_cast<HTKeyValue_t*>(element));
     if (element_size == kFailedWrite) {
       LLIterator_Free(it);
@@ -421,8 +421,8 @@ static int WriteDocidToDocnameFn(FILE* f, IndexFileOffset_t offset,
   // STEP 9.
   // determine the file name length
   char* file_name = static_cast<char*>(kv->value);
-  int16_t file_name_bytes = strlen(file_name);  // you may want to change this
-  
+  int16_t file_name_bytes = strlen(file_name);
+
   // fwrite() the docid from `kv`.  Remember to convert to
   // disk format before writing.
   DoctableElementHeader header(kv->key, file_name_bytes);
@@ -442,7 +442,7 @@ static int WriteDocidToDocnameFn(FILE* f, IndexFileOffset_t offset,
   // field for the string.
   for (int i = 0; i < file_name_bytes; i++) {
     if (isascii(file_name[i])) {
-      if (fwrite(&file_name[i], 1, 1, f) != 1) { 
+      if (fwrite(&file_name[i], 1, 1, f) != 1) {
         return kFailedWrite;
       }
     }
@@ -450,7 +450,7 @@ static int WriteDocidToDocnameFn(FILE* f, IndexFileOffset_t offset,
 
   // STEP 11.
   // calculate and return the total amount written.
-  return sizeof(DoctableElementHeader) + file_name_bytes;  // you may want to change this
+  return sizeof(DoctableElementHeader) + file_name_bytes;
 }
 
 // This write_element_fn is used to write a DocID + position list
@@ -476,7 +476,7 @@ static int WriteDocIDToPositionListFn(FILE* f,
     return kFailedWrite;
   }
 
-  if (fwrite(&curr_doc_id, sizeof(curr_doc_id), 1, f) != 1) { 
+  if (fwrite(&curr_doc_id, sizeof(curr_doc_id), 1, f) != 1) {
     return kFailedWrite;
   }
 
@@ -491,7 +491,8 @@ static int WriteDocIDToPositionListFn(FILE* f,
 
     // STEP 14.
     // Truncate to 32 bits, then convert it to network order and write it out.
-    DocIDElementPosition position(*reinterpret_cast<DocPositionOffset_t*>(&payload));
+    DocIDElementPosition position(*reinterpret_cast<DocPositionOffset_t*>
+                                  (&payload));
     position.ToDiskFormat();
     if (fwrite(&position, sizeof(DocIDElementPosition), 1, f) != 1) {
       LLIterator_Free(it);
@@ -505,8 +506,8 @@ static int WriteDocIDToPositionListFn(FILE* f,
 
   // STEP 15.
   // Calculate and return the total amount of data written.
-  return sizeof(DocIDElementHeader) + 
-          (sizeof(DocIDElementPosition) * num_positions);  // you may want to change this
+  return sizeof(DocIDElementHeader) +
+          (sizeof(DocIDElementPosition) * num_positions);
 }
 
 // This write_element_fn is used to write a WordPostings
@@ -543,7 +544,8 @@ static int WriteWordToPostingsFn(FILE* f,
   if (fseek(f, offset, SEEK_SET) != 0) {
     return kFailedWrite;
   }
-  if (fwrite(&header, sizeof(WordPostingsHeader), 1, f) != 1) { 
+
+  if (fwrite(&header, sizeof(WordPostingsHeader), 1, f) != 1) {
     return kFailedWrite;
   }
 
