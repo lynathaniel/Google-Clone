@@ -89,7 +89,7 @@ DocIDTableReader* IndexTableReader::LookupWord(const string& word) const {
       // DocIDTableReader to have its own (FILE*) handle
       //
       // return the new'd (DocIDTableReader*) to the caller.
-      IndexFileOffset_t docIDTableOffset = 
+      IndexFileOffset_t docIDTableOffset =
           offset + sizeof(WordPostingsHeader) + header.word_bytes;
       DocIDTableReader* ditr =
           new DocIDTableReader(FileDup(file_), docIDTableOffset);

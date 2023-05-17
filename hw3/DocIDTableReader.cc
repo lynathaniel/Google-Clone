@@ -88,7 +88,7 @@ list<DocIDElementHeader> DocIDTableReader::GetDocIDList() const {
     // Seek to the next BucketRecord.  The "offset_" member
     // variable stores the offset of this docid table within
     // the index file.
-    IndexFileOffset_t bucket_rec_off = offset_ + sizeof(BucketListHeader) + 
+    IndexFileOffset_t bucket_rec_off = offset_ + sizeof(BucketListHeader) +
                                         i * sizeof(BucketRecord);
     Verify333(fseek(file_, bucket_rec_off, SEEK_SET) == 0);
 
@@ -111,7 +111,7 @@ list<DocIDElementHeader> DocIDTableReader::GetDocIDList() const {
       // Read the next element position from the bucket header.
       // and seek to the element itself.
       ElementPositionRecord element_pos;
-      Verify333(fread(&element_pos, sizeof(ElementPositionRecord), 1, 
+      Verify333(fread(&element_pos, sizeof(ElementPositionRecord), 1,
                   file_) == 1);
       element_pos.ToHostFormat();
       Verify333(fseek(file_, element_pos.position, SEEK_SET) == 0);

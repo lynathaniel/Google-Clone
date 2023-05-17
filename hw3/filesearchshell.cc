@@ -11,16 +11,41 @@
 
 #include <cstdlib>    // for EXIT_SUCCESS, EXIT_FAILURE
 #include <iostream>   // for std::cout, std::cerr, etc.
+#include <sstream>
 
 #include "./QueryProcessor.h"
 
 using std::cerr;
+using std::cout;
+using std::cin;
 using std::endl;
+using std::string;
+using std::getline;
+using std::stringstream;
+using hw3::QueryProcessor;
 
 // Error usage message for the client to see
 // Arguments:
 // - prog_name: Name of the program
 static void Usage(char* prog_name);
+
+// Processes a query to the inverted index.
+//
+// Arguments:
+// - qp: the QueryProcessor created from the root directory.
+//
+// Returns:
+// - empty vector: no matching documents were found
+// - a non-empty vector if there are found matches
+
+static vector<QueryProcessor::QueryResult>
+       HandleQuery(const QueryProcessor& qp);
+
+// Converts a string to lower-case and removes the newline.
+//
+// Arguments:
+// - str: the string to normalized.
+static string NormalizeString(const string& str);
 
 // Your job is to implement the entire filesearchshell.cc
 // functionality. We're essentially giving you a blank screen to work
@@ -86,7 +111,30 @@ int main(int argc, char** argv) {
   // STEP 1:
   // Implement filesearchshell!
   // Probably want to write some helper methods ...
-  while (1) { }
+  list<string> index_list;
+  for (int i = 1; i < argc; i++) {
+    index_list.push_back(argv[i]);
+  }
+
+  QueryProcessor qp(index_list);
+  vector<QueryProcessor::QueryResult> results;
+
+  while (1) {
+    // Find results
+    results = HandleQuery(qp);
+
+    // Handle when theres are no results
+    if (results.size() == 0) {
+      cout << "  [no results]" << endl;
+      continue;
+    }
+
+    // Print out results
+    for (const QueryProcessor::QueryResult& result : results) {
+      cout << "  " << result.document_name;
+      cout << " (" << result.rank << ")" << endl;
+    }
+  }
 
   return EXIT_SUCCESS;
 }
@@ -94,4 +142,37 @@ int main(int argc, char** argv) {
 static void Usage(char* prog_name) {
   cerr << "Usage: " << prog_name << " [index files+]" << endl;
   exit(EXIT_FAILURE);
+}
+
+static vector<QueryProcessor::QueryResult>
+       HandleQuery(const QueryProcessor& qp) {
+  string input;
+  string token;
+  vector<string> query;
+  vector<QueryProcessor::QueryResult> results;
+
+  cout << "Enter query:" << endl;
+  getline(cin, input);
+  // Exit program if user passes in EoF
+  if (cin.eof()) {
+    exit(EXIT_SUCCESS);
+  }
+
+  stringstream tokens(input);
+
+  // Tokenize given query
+  while (tokens >> token) {
+    token = NormalizeString(token);
+    query.push_back(token);
+  }
+  results = qp.ProcessQuery(query);
+  return results;
+}
+
+static string NormalizeString(const string& str) {
+  string ret_str = str;
+  for (char& character : ret_str) {
+    character = tolower(character);
+  }
+  return ret_str;
 }

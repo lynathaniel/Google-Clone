@@ -41,7 +41,7 @@ FileIndexReader::FileIndexReader(const string& file_name,
   // Read the entire file header and convert to host format.
   Verify333(fread(&header_, sizeof(IndexFileHeader), 1, file_) == 1);
   header_.ToHostFormat();
-  
+
   // STEP 3.
   // Verify that the magic number is correct.  Crash if not.
   Verify333(header_.magic_number == kMagicNumber);
@@ -51,9 +51,7 @@ FileIndexReader::FileIndexReader(const string& file_name,
   Verify333(stat(file_name_.c_str(), &f_stat) == 0);
   Verify333(
     f_stat.st_size == static_cast<unsigned int>(
-      sizeof(IndexFileHeader) + header_.doctable_bytes + header_.index_bytes
-    )
-  );
+      sizeof(IndexFileHeader) + header_.doctable_bytes + header_.index_bytes));
 
   if (validate) {
     // Re-calculate the checksum, make sure it matches that in the header.

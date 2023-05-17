@@ -106,7 +106,7 @@ QueryProcessor::ProcessQuery(const vector<string>& query) const {
 
     word_postings = didtr->GetDocIDList();
     // Store file name and word count for each file
-    for (const auto& word_posting : word_postings) {
+    for (const DocIDElementHeader& word_posting : word_postings) {
       string file_name;
       curr_dtr->LookupDocID(word_posting.doc_id, &file_name);
       curr_index_result[file_name] = word_posting.num_positions;
@@ -141,7 +141,7 @@ QueryProcessor::ProcessQuery(const vector<string>& query) const {
 
       // Store file name and word count for each file
       word_postings = didtr->GetDocIDList();
-      for (const auto& word_posting : word_postings) {
+      for (const DocIDElementHeader& word_posting : word_postings) {
         string file_name;
         curr_dtr->LookupDocID(word_posting.doc_id, &file_name);
         curr_word_result[file_name] = word_posting.num_positions;

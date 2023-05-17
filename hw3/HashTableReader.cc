@@ -47,7 +47,7 @@ HashTableReader::LookupElementPositions(HTKey_t hash_key) const {
   int bucket_num = hash_key % header_.num_buckets;
 
   // Figure out the offset of the "bucket_rec" field for this bucket.
-  IndexFileOffset_t bucket_rec_offset = 
+  IndexFileOffset_t bucket_rec_offset =
       offset_ + sizeof(BucketListHeader) + sizeof(BucketRecord) * bucket_num;
 
   // STEP 2.
