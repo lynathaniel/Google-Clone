@@ -32,9 +32,9 @@ using std::unordered_set;
 
 namespace hw3 {
 
-// Deletes pairs from the first map that do no intersect with the second map
+// Creates a new map that is the intersect of the two given maps
 //
-// Returns true if returned map is non-empty; false otherwise
+// Returns new map, empty if there are no intersecting pairs
 static map<string, int> IntersectMaps(const map<string, int>& map1,
                                       const map<string, int>& map2);
 
