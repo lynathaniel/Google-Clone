@@ -11,7 +11,7 @@
 
 #include <cstdlib>    // for EXIT_SUCCESS, EXIT_FAILURE
 #include <iostream>   // for std::cout, std::cerr, etc.
-#include <sstream>
+#include <filesystem>
 
 #include "./QueryProcessor.h"
 
@@ -20,8 +20,10 @@ using std::cout;
 using std::cin;
 using std::endl;
 using std::string;
+using std::list;
+using std::vector;
+using std::istringstream;
 using std::getline;
-using std::stringstream;
 using hw3::QueryProcessor;
 
 // Error usage message for the client to see
@@ -29,23 +31,16 @@ using hw3::QueryProcessor;
 // - prog_name: Name of the program
 static void Usage(char* prog_name);
 
-// Processes a query to the inverted index.
+// Passes in a query to qp, and obtains its results.
 //
 // Arguments:
-// - qp: the QueryProcessor created from the root directory.
+// - qp: an instance of QueryProcessor loaded with indices
+// - results: a return parameter to store the results of the query
 //
 // Returns:
-// - empty vector: no matching documents were found
-// - a non-empty vector if there are found matches
-
-static vector<QueryProcessor::QueryResult>
-       HandleQuery(const QueryProcessor& qp);
-
-// Converts a string to lower-case and removes the newline.
-//
-// Arguments:
-// - str: the string to normalized.
-static string NormalizeString(const string& str);
+// - false only when user passes in EoF to stdin, otherwise true
+static bool ProcessUserInput(const QueryProcessor& qp,
+                             vector<QueryProcessor::QueryResult>* results);
 
 // Your job is to implement the entire filesearchshell.cc
 // functionality. We're essentially giving you a blank screen to work
@@ -112,31 +107,31 @@ int main(int argc, char** argv) {
   // Implement filesearchshell!
   // Probably want to write some helper methods ...
   list<string> index_list;
+  vector<QueryProcessor::QueryResult> results;
+
+  // Add each arg to our index_list.
   for (int i = 1; i < argc; i++) {
     index_list.push_back(argv[i]);
   }
-
   QueryProcessor qp(index_list);
-  vector<QueryProcessor::QueryResult> results;
-
+  
+  // Keep reading until the user has passed in EoF to stdin.
   while (1) {
-    // Find results
-    results = HandleQuery(qp);
+    // If user has passed in EoF, we are done.
+    if (!ProcessUserInput(qp, &results)) {
+      return EXIT_SUCCESS;
+    }
 
-    // Handle when theres are no results
     if (results.size() == 0) {
       cout << "  [no results]" << endl;
       continue;
     }
 
-    // Print out results
-    for (const QueryProcessor::QueryResult& result : results) {
-      cout << "  " << result.document_name;
-      cout << " (" << result.rank << ")" << endl;
+    // Print out results for user.
+    for (const auto& qr : results) {
+      cout << "  " << qr.document_name << " (" << qr.rank << ")" << endl;
     }
   }
-
-  return EXIT_SUCCESS;
 }
 
 static void Usage(char* prog_name) {
@@ -144,35 +139,28 @@ static void Usage(char* prog_name) {
   exit(EXIT_FAILURE);
 }
 
-static vector<QueryProcessor::QueryResult>
-       HandleQuery(const QueryProcessor& qp) {
-  string input;
-  string token;
-  vector<string> query;
-  vector<QueryProcessor::QueryResult> results;
-
+static bool ProcessUserInput(const QueryProcessor& qp,
+                             vector<QueryProcessor::QueryResult>* results) {
+  string query;
+  string word;
+  vector<string> query_vec;
+  
   cout << "Enter query:" << endl;
-  getline(cin, input);
-  // Exit program if user passes in EoF
+  getline(cin, query);
   if (cin.eof()) {
-    exit(EXIT_SUCCESS);
+    return false;
   }
 
-  stringstream tokens(input);
+  istringstream iss(query, istringstream::in);
+  while (iss >> word) {
+    // Convert word to lowercase and add to our query vector.
+    for (auto& c : word) {
+      c = tolower(c);
+    }
 
-  // Tokenize given query
-  while (tokens >> token) {
-    token = NormalizeString(token);
-    query.push_back(token);
+    query_vec.push_back(word);
   }
-  results = qp.ProcessQuery(query);
-  return results;
-}
 
-static string NormalizeString(const string& str) {
-  string ret_str = str;
-  for (char& character : ret_str) {
-    character = tolower(character);
-  }
-  return ret_str;
+  *results = qp.ProcessQuery(query_vec);
+  return true;
 }
