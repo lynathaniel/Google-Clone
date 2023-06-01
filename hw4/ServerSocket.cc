@@ -54,7 +54,7 @@ bool ServerSocket::BindAndListen(int ai_family, int* const listen_fd) {
   // STEP 1:
   struct addrinfo hints;
   memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = ai_family;
+  hints.ai_family = AF_INET6;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
   hints.ai_flags |= AI_V4MAPPED;
@@ -90,6 +90,7 @@ bool ServerSocket::BindAndListen(int ai_family, int* const listen_fd) {
 
     // Try binding the socket to returned address and port number
     if (bind(*listen_fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+      sock_family_ = rp->ai_family;
       break;
     }
 
@@ -134,7 +135,7 @@ bool ServerSocket::Accept(int* const accepted_fd,
   struct sockaddr* saddr = reinterpret_cast<struct sockaddr*>(&caddr);
   socklen_t caddr_len = sizeof(caddr);
   while (1) {
-    client_fd = accept(listen_sockfd,
+    client_fd = accept(listen_sock_fd_,
                         saddr,
                         &caddr_len);
     if (client_fd < 0) {
@@ -147,25 +148,81 @@ bool ServerSocket::Accept(int* const accepted_fd,
     break;
   }
 
-  // Set file descriptor output parameter for client connection.
-  accepted_fd = client_fd;
+  // Set file descriptor output param for client connection.
+  *accepted_fd = client_fd;
 
+  // If the client is an IPv4 address:
   if (saddr->sa_family == AF_INET) {
-    struct sockaddr_in sa = reinterpret_cast<struct sockaddr_in*>(saddr);
+    struct sockaddr_in* sa = reinterpret_cast<struct sockaddr_in*>(saddr);
     char astring[INET_ADDRSTRLEN];
 
+    // Convert address + port to appropriate formats, store in output params.
     inet_ntop(AF_INET, &(sa->sin_addr), astring, INET_ADDRSTRLEN);
     *client_addr = astring;
-    client_port = ntohs(sa->sin_port);
+    *client_port = htons(sa->sin_port);
+  
+  // If the client is an IPv6 address:
   } else if (saddr->sa_family == AF_INET6) {
-    struct sockaddr_in6 sa = reinterpret_cast<struct sockaddr_in6*>(saddr);
+    struct sockaddr_in6* sa = reinterpret_cast<struct sockaddr_in6*>(saddr);
     char astring[INET6_ADDRSTRLEN];
 
+    // Convert address + port to appropriate formats, store in output params.
     inet_ntop(AF_INET6, &(sa->sin6_addr), astring, INET6_ADDRSTRLEN);
     *client_addr = astring;
-    *client_port = ntohs(sa->sin6_port);
+    *client_port = htons(sa->sin6_port);
+
+  // If the client is unspecified:
+  } else {
+    cerr << "Could not determine address and port." << endl;
+    return false;
   }
-  *client_addr = caddr->
+
+  // Perform reverse DNS lookup on client, store in output param.
+  char client_dns_buf[NI_MAXHOST];
+  if (getnameinfo(saddr, caddr_len, client_dns_buf, 
+        sizeof(client_dns_buf), nullptr, 0, 0) != 0) {
+    cerr << "Failed to get client DNS name." << endl;
+    return false;
+  }
+  *client_dns_name = client_dns_buf;
+
+  // Obtain the server address and perform reverse DNS lookup.
+  char server_dns_buf[NI_MAXHOST];
+  server_dns_buf[0] = '\0';
+
+  // If the server is an IPv4 address:
+  if (sock_family_ == AF_INET) {
+    struct sockaddr_in srvr;
+    socklen_t srvrlen = sizeof(srvr);
+    char addrbuf[INET_ADDRSTRLEN];
+    getsockname(client_fd,
+                reinterpret_cast<struct sockaddr*>(&srvr),
+                &srvrlen);
+    inet_ntop(AF_INET, &srvr.sin_addr, addrbuf, INET_ADDRSTRLEN);
+    // Get the server's dns name, or return it's IP address as
+    // a substitute if the dns lookup fails.
+    getnameinfo(reinterpret_cast<struct sockaddr*>(&srvr),
+                srvrlen, server_dns_buf, 1024, nullptr, 0, 0);
+    *server_addr = addrbuf;
+    *server_dns_name = server_dns_buf;
+
+  // If the server is an IPv6 address:
+  } else {
+    struct sockaddr_in6 srvr;
+    socklen_t srvrlen = sizeof(srvr);
+    char addrbuf[INET6_ADDRSTRLEN];
+    getsockname(client_fd,
+                reinterpret_cast<struct sockaddr*>(&srvr),
+                &srvrlen);
+    inet_ntop(AF_INET, &srvr.sin6_addr, addrbuf, INET_ADDRSTRLEN);
+    // Get the server's dns name, or return it's IP address as
+    // a substitute if the dns lookup fails.
+    getnameinfo(reinterpret_cast<struct sockaddr*>(&srvr),
+                srvrlen, server_dns_buf, 1024, nullptr, 0, 0);
+    *server_addr = addrbuf;
+    *server_dns_name = server_dns_buf;
+  }
+
   return true;
 }
 

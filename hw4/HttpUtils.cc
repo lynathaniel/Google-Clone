@@ -53,29 +53,30 @@ bool IsPathSafe(const string& root_dir, const string& test_file) {
   // path of a file.)
 
   // STEP 1
-  char actualpath[PATH_MAX + 1];
+  char actualpath1[PATH_MAX + 1];
+  char actualpath2[PATH_MAX + 1];
   char* path_ptr;
+  char* dir_ptr;
 
   // Extract full file path
-  path_ptr = realpath(test_file.c_str(), actualpath);
+  path_ptr = realpath(test_file.c_str(), actualpath1);
+  dir_ptr = realpath(root_dir.c_str(), actualpath2);
   // Check if file exists
-  if (path_ptr == nullptr) {
+  if (path_ptr == nullptr || dir_ptr == nullptr) {
     return false;
   }
 
   // Split directories into tokens
-  vector<string> tokens;
-  boost::split(tokens, test_file, boost::is_any_of("/"),
+  vector<string> path_tokens;
+  vector<string> root_tokens;
+  boost::split(path_tokens, path_ptr, boost::is_any_of("/"),
+                                  boost::token_compress_on);
+  boost::split(root_tokens, dir_ptr, boost::is_any_of("/"),
                                   boost::token_compress_on);
 
-  // Check if root_dir is within full path
-  for (const string& token : tokens) {
-    if (token == root_dir) {
-      return true;
-    }
-  }
-  
-  return false;
+  // Truncate test_file path to length of root path
+  path_tokens.resize(root_tokens.size());
+  return root_tokens == path_tokens;
 }
 
 string EscapeHtml(const string& from) {
@@ -89,9 +90,9 @@ string EscapeHtml(const string& from) {
   // looked up online.
 
   // STEP 2
+  replace_all(ret, "&", "&amp;");
   replace_all(ret, "<", "&lt;");
   replace_all(ret, ">", "&gt;");
-  replace_all(ret, "&", "&amp;");
   replace_all(ret, "'", "&apos;");
   replace_all(ret, "\"", "&quot;");
   return ret;

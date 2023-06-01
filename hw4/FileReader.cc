@@ -48,20 +48,20 @@ bool FileReader::ReadFile(string* const contents) {
 
   // STEP 1:
   // Check if file can be found/opened
-  if (!IsPathSafe(basedir_, fname_)) {
+  if (!IsPathSafe(basedir_, full_file)) {
     return false;
   }
 
   int len;
-
   // Convert file to string
   char* read_file = ReadFileToString(full_file.c_str(), &len);
 
-  // Copy over string and free c-style string
+  // Copy over string
   string str(read_file, len);
-  free(read_file);
   *contents = str;
 
+  // Free c-style string
+  free(read_file);
   return true;
 }
 
