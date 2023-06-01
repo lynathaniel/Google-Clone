@@ -53,9 +53,29 @@ bool IsPathSafe(const string& root_dir, const string& test_file) {
   // path of a file.)
 
   // STEP 1
+  char actualpath[PATH_MAX + 1];
+  char* path_ptr;
 
+  // Extract full file path
+  path_ptr = realpath(test_file.c_str(), actualpath);
+  // Check if file exists
+  if (path_ptr == nullptr) {
+    return false;
+  }
 
-  return true;  // You may want to change this.
+  // Split directories into tokens
+  vector<string> tokens;
+  boost::split(tokens, test_file, boost::is_any_of("/"),
+                                  boost::token_compress_on);
+
+  // Check if root_dir is within full path
+  for (const string& token : tokens) {
+    if (token == root_dir) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 string EscapeHtml(const string& from) {
@@ -69,8 +89,11 @@ string EscapeHtml(const string& from) {
   // looked up online.
 
   // STEP 2
-
-
+  replace_all(ret, "<", "&lt;");
+  replace_all(ret, ">", "&gt;");
+  replace_all(ret, "&", "&amp;");
+  replace_all(ret, "'", "&apos;");
+  replace_all(ret, "\"", "&quot;");
   return ret;
 }
 

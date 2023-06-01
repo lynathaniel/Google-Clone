@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <memory>
 
 extern "C" {
   #include "libhw2/FileParser.h"
@@ -23,6 +24,7 @@ extern "C" {
 #include "./FileReader.h"
 
 using std::string;
+using std::unique_ptr;
 
 namespace hw4 {
 
@@ -45,7 +47,20 @@ bool FileReader::ReadFile(string* const contents) {
   // HttpUtils.h above the MallocDeleter class for details.
 
   // STEP 1:
+  // Check if file can be found/opened
+  if (!IsPathSafe(basedir_, fname_)) {
+    return false;
+  }
 
+  int len;
+
+  // Convert file to string
+  char* read_file = ReadFileToString(full_file.c_str(), &len);
+
+  // Copy over string and free c-style string
+  string str(read_file, len);
+  free(read_file);
+  *contents = str;
 
   return true;
 }
