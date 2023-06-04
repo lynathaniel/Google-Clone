@@ -32,6 +32,7 @@ using std::map;
 using std::string;
 using std::stringstream;
 using std::unique_ptr;
+using std::to_string;
 
 namespace hw4 {
 ///////////////////////////////////////////////////////////////////////////////
@@ -134,8 +135,21 @@ static void HttpServer_ThrFn(ThreadPool::Task* t) {
 
   // STEP 1:
   bool done = false;
+  HttpConnection conn(hst->client_fd);
   while (!done) {
-    done = true;  // you may want to change this value
+    HttpRequest request;
+
+    // If the connection is closed, shut down.
+    if (!conn.GetNextRequest(&request) || request.GetHeaderValue("connection") == "close") {
+      break;
+    }
+
+    // Process the request, generate a response, and write. If there is
+    // a failure in writing, shut down.
+    if (!conn.WriteResponse(ProcessRequest(request, hst->base_dir, 
+          *hst->indices))) {
+      break;
+    }
   }
 }
 
@@ -181,15 +195,50 @@ static HttpResponse ProcessFileRequest(const string& uri,
   string file_name = "";
 
   // STEP 2:
+  URLParser up = URLParser();
+  up.Parse(uri);
+  file_name = base_dir + up.path().substr(7);
 
+  FileReader fr(base_dir, file_name);
+  string content;
+  if (!IsPathSafe(base_dir, file_name) || !fr.ReadFile(&content)) {
+    // If you couldn't find the file, return an HTTP 404 error.
+    ret.set_protocol("HTTP/1.1");
+    ret.set_response_code(404);
+    ret.set_message("Not Found");
+    ret.AppendToBody("<html><body>Couldn't find file \""
+                    + EscapeHtml(file_name)
+                    + "\"</body></html>\n");
+  } else {
+    ret.set_protocol("HTTP/1.1");
+    ret.set_response_code(200);
+    ret.set_message("OK");
 
-  // If you couldn't find the file, return an HTTP 404 error.
-  ret.set_protocol("HTTP/1.1");
-  ret.set_response_code(404);
-  ret.set_message("Not Found");
-  ret.AppendToBody("<html><body>Couldn't find file \""
-                   + EscapeHtml(file_name)
-                   + "\"</body></html>\n");
+    // Find the extension and set the content type based on the extension.
+    const string extension = file_name.substr(file_name.find_first_of(".", 2));
+    if (extension == "html" || extension == "htm") {
+      ret.set_content_type("text/html");
+    } else if (extension == "jpeg" || extension == "jpg") {
+      ret.set_content_type("image/jpeg");
+    } else if (extension == "png") {
+      ret.set_content_type("image/png");
+    } else if (extension == "txt") {
+      ret.set_content_type("text/plain");
+    } else if (extension == "js") {
+      ret.set_content_type("text/javascript");
+    } else if (extension == "css") {
+      ret.set_content_type("text/css");
+    } else if (extension == "xml") {
+      ret.set_content_type("application/xml");
+    } else if (extension == "gif") {
+      ret.set_content_type("image/gif");
+    } else {
+      ret.set_content_type("text/plain");
+    }
+
+    ret.AppendToBody(content);
+  }
+
   return ret;
 }
 
@@ -219,7 +268,43 @@ static HttpResponse ProcessQueryRequest(const string& uri,
   //    tags!)
 
   // STEP 3:
+  URLParser up = URLParser();
+  up.Parse(uri);
+  string input = boost::trim_copy(boost::algorithm::to_lower_copy(
+                                            up.args()["terms"]));
+  vector<string> query;
+  boost::split(query, input, boost::is_any_of(" "), 
+                             boost::algorithm::token_compress_on);
 
+  hw3::QueryProcessor qp(indices);
+  vector<hw3::QueryProcessor::QueryResult> results = qp.ProcessQuery(query);
+
+  ret.set_protocol("HTTP/1.1");
+  ret.set_response_code(200);
+  ret.set_message("OK");
+
+  ret.AppendToBody(kThreegleStr);
+  ret.AppendToBody("<p><br>\r\n");
+  if (input != "") {
+    if (results.empty()) {
+      ret.AppendToBody("No results found for ");
+    } else {
+      ret.AppendToBody(to_string(results.size()) + " results found for ");
+    }
+
+    ret.AppendToBody("<b>" + EscapeHtml(input) + "</b></p><ul>");
+    
+    for (const hw3::QueryProcessor::QueryResult& result : results) {
+      ret.AppendToBody("<li><a href='");
+      if (result.document_name.substr(0, 7) != "http://" &&
+          result.document_name.substr(0, 8) != "https://") {
+        ret.AppendToBody("../static/");
+      }
+      ret.AppendToBody(result.document_name + "'>" + EscapeHtml(result.document_name)
+        + "</a> [" + to_string(result.rank) + "]</li>");
+    }
+  }
+  ret.AppendToBody("</ul></body></html>");
   return ret;
 }
 

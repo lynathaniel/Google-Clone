@@ -19,6 +19,7 @@
 #include <cstdio>
 #include <iostream>
 #include <list>
+#include <filesystem>
 
 #include "./ServerSocket.h"
 #include "./HttpServer.h"
@@ -28,6 +29,8 @@ using std::cout;
 using std::endl;
 using std::list;
 using std::string;
+using std::filesystem::directory_iterator;
+using std::filesystem::is_regular_file;
 
 // Print out program usage, and exit() with EXIT_FAILURE.
 static void Usage(char* prog_name);
@@ -36,7 +39,7 @@ static void Usage(char* prog_name);
 // for your http333d server.
 //
 // Params:
-// - argc: number of argumnets
+// - argc: number of arguments
 // - argv: array of arguments
 // - port: output parameter returning the port number to listen on
 // - path: output parameter returning the directory with our static files
@@ -101,5 +104,24 @@ static void GetPortAndPath(int argc,
   // - You have at least 1 index, and all indices are readable files
 
   // STEP 1:
+  if (argc < 4) {
+    Usage("./http333d");
+  }
+
+  // Convert arguments to C++ strings
+  const string arg1(argv[1]);
+  const string arg2(argv[2]);
+
+  // Traverse indices directory
+  list<string> found_indices;
+  for (int i = 3; i < argc; i++) {
+    const string index(argv[i]);
+    found_indices.push_back(index);
+  }
+
+  // Set return parameters
+  *port = stoi(arg1);
+  *path = arg2;
+  *indices = found_indices;
 }
 
