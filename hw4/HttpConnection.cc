@@ -24,6 +24,8 @@ using std::map;
 using std::string;
 using std::vector;
 
+#define BUFSIZE 1024
+
 namespace hw4 {
 
 static const char* kHeaderEnd = "\r\n\r\n";
@@ -47,9 +49,29 @@ bool HttpConnection::GetNextRequest(HttpRequest* const request) {
   // next time the caller invokes GetNextRequest()!
 
   // STEP 1:
+  unsigned char readbuf[BUFSIZE];
+  size_t found;
 
+  // Keep reading until connection drops or end of request is seen.
+  while ((found = buffer_.find(kHeaderEnd)) == string::npos) {
+    int res = WrappedRead(fd_, readbuf, BUFSIZE);
 
-  return false;  // You may want to change this.
+    // There was an error reading or we didn't find end of request header
+    // before the connection dropped.
+    if (res <= 0) {
+      return false;
+    }
+    buffer_ += string(reinterpret_cast<char*>(readbuf), res);
+  }
+
+  // Get first request read, parse it, and store it in output param.
+  *request = ParseRequest(buffer_.substr(0, found + kHeaderEndLen));
+
+  // If multiple requests were read, store everything after the first
+  // into buffer_ for the next GetNextRequest() call.
+  buffer_ = buffer_.substr(found + kHeaderEndLen);
+  
+  return true;
 }
 
 bool HttpConnection::WriteResponse(const HttpResponse& response) const {
@@ -83,6 +105,31 @@ HttpRequest HttpConnection::ParseRequest(const string& request) const {
 
   // STEP 2:
 
+  // Split the request into lines.
+  vector<string> lines;
+  boost::split(lines, request, boost::is_any_of("\r\n"),
+               boost::token_compress_on);
+
+  // Set the URI of the request.
+  vector<string> components;
+  string first_line = lines[0];
+  boost::split(components, first_line, boost::is_any_of(" "),
+               boost::token_compress_on);
+  req.set_uri(components[1]);
+
+  // Add each header to the request.
+  for (unsigned int i = 1; i < lines.size(); i++) {
+    vector<string> header;
+    boost::split(header, lines[i], boost::is_any_of(":"),
+                 boost::token_compress_on);
+
+    // Only add the header if it isn't malformed.
+    if (header.size() == 2) {
+      boost::algorithm::to_lower(header[0]);
+      boost::trim(header[1]);
+      req.AddHeader(header[0], header[1]);
+    }
+  }
 
   return req;
 }

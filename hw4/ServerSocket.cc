@@ -199,6 +199,7 @@ bool ServerSocket::Accept(int* const accepted_fd,
                 reinterpret_cast<struct sockaddr*>(&srvr),
                 &srvrlen);
     inet_ntop(AF_INET, &srvr.sin_addr, addrbuf, INET_ADDRSTRLEN);
+    
     // Get the server's dns name, or return it's IP address as
     // a substitute if the dns lookup fails.
     getnameinfo(reinterpret_cast<struct sockaddr*>(&srvr),
@@ -214,7 +215,8 @@ bool ServerSocket::Accept(int* const accepted_fd,
     getsockname(client_fd,
                 reinterpret_cast<struct sockaddr*>(&srvr),
                 &srvrlen);
-    inet_ntop(AF_INET, &srvr.sin6_addr, addrbuf, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET6, &srvr.sin6_addr, addrbuf, INET_ADDRSTRLEN);
+
     // Get the server's dns name, or return it's IP address as
     // a substitute if the dns lookup fails.
     getnameinfo(reinterpret_cast<struct sockaddr*>(&srvr),
