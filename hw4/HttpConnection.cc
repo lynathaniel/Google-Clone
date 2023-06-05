@@ -70,7 +70,7 @@ bool HttpConnection::GetNextRequest(HttpRequest* const request) {
   // If multiple requests were read, store everything after the first
   // into buffer_ for the next GetNextRequest() call.
   buffer_ = buffer_.substr(found + kHeaderEndLen);
-  
+
   return true;
 }
 

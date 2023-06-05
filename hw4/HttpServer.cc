@@ -140,13 +140,14 @@ static void HttpServer_ThrFn(ThreadPool::Task* t) {
     HttpRequest request;
 
     // If the connection is closed, shut down.
-    if (!conn.GetNextRequest(&request) || request.GetHeaderValue("connection") == "close") {
+    if (!conn.GetNextRequest(&request) ||
+         request.GetHeaderValue("connection") == "close") {
       break;
     }
 
     // Process the request, generate a response, and write. If there is
     // a failure in writing, shut down.
-    if (!conn.WriteResponse(ProcessRequest(request, hst->base_dir, 
+    if (!conn.WriteResponse(ProcessRequest(request, hst->base_dir,
           *hst->indices))) {
       break;
     }
@@ -273,7 +274,7 @@ static HttpResponse ProcessQueryRequest(const string& uri,
   string input = boost::trim_copy(boost::algorithm::to_lower_copy(
                                             up.args()["terms"]));
   vector<string> query;
-  boost::split(query, input, boost::is_any_of(" "), 
+  boost::split(query, input, boost::is_any_of(" "),
                              boost::algorithm::token_compress_on);
 
   hw3::QueryProcessor qp(indices);
@@ -293,15 +294,16 @@ static HttpResponse ProcessQueryRequest(const string& uri,
     }
 
     ret.AppendToBody("<b>" + EscapeHtml(input) + "</b></p><ul>");
-    
+
     for (const hw3::QueryProcessor::QueryResult& result : results) {
       ret.AppendToBody("<li><a href='");
       if (result.document_name.substr(0, 7) != "http://" &&
           result.document_name.substr(0, 8) != "https://") {
         ret.AppendToBody("../static/");
       }
-      ret.AppendToBody(result.document_name + "'>" + EscapeHtml(result.document_name)
-        + "</a> [" + to_string(result.rank) + "]</li>");
+      ret.AppendToBody(result.document_name + "'>" +
+          EscapeHtml(result.document_name) + "</a> [" +
+          to_string(result.rank) + "]</li>");
     }
   }
   ret.AppendToBody("</ul></body></html>");

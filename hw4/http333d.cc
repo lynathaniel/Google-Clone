@@ -105,23 +105,42 @@ static void GetPortAndPath(int argc,
 
   // STEP 1:
   if (argc < 4) {
-    Usage("./http333d");
+    Usage(argv[0]);
   }
 
-  // Convert arguments to C++ strings
-  const string arg1(argv[1]);
-  const string arg2(argv[2]);
+  // Check for valid port
+  *port = atoi(argv[1]);
+  if (*port == 0) {
+    cerr << "Invalid port number: " << argv[1] << endl;
+    Usage(argv[0]);
+  }
+
+  struct stat s;
+  if ((stat(argv[2], &s) != 0) || !S_ISDIR(s.st_mode)) {
+    cerr << "Invalid directory: " << argv[2] << endl;
+    Usage(argv[0]);
+  }
+  *path = argv[2];
 
   // Traverse indices directory
-  list<string> found_indices;
   for (int i = 3; i < argc; i++) {
     const string index(argv[i]);
-    found_indices.push_back(index);
+    size_t extension = index.size() - 4;
+    if (index.substr(extension) == ".idx") {
+      if (stat(argv[i], &s) != 0) {
+        cerr << "Invalid index file: " << argv[i] << endl;
+      }
+
+      if (!S_ISREG(s.st_mode)) {
+        cerr << "Irregular index file: " << argv[i] << endl;
+      }
+      indices->push_back(index);
+    }
   }
 
-  // Set return parameters
-  *port = stoi(arg1);
-  *path = arg2;
-  *indices = found_indices;
+  if (indices->size() == 0) {
+    cerr << "No index files were found" << endl;
+    Usage(argv[0]);
+  }
 }
 

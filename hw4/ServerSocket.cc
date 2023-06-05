@@ -160,7 +160,7 @@ bool ServerSocket::Accept(int* const accepted_fd,
     inet_ntop(AF_INET, &(sa->sin_addr), astring, INET_ADDRSTRLEN);
     *client_addr = astring;
     *client_port = htons(sa->sin_port);
-  
+
   // If the client is an IPv6 address:
   } else if (saddr->sa_family == AF_INET6) {
     struct sockaddr_in6* sa = reinterpret_cast<struct sockaddr_in6*>(saddr);
@@ -179,7 +179,7 @@ bool ServerSocket::Accept(int* const accepted_fd,
 
   // Perform reverse DNS lookup on client, store in output param.
   char client_dns_buf[NI_MAXHOST];
-  if (getnameinfo(saddr, caddr_len, client_dns_buf, 
+  if (getnameinfo(saddr, caddr_len, client_dns_buf,
         sizeof(client_dns_buf), nullptr, 0, 0) != 0) {
     cerr << "Failed to get client DNS name." << endl;
     return false;
@@ -199,7 +199,7 @@ bool ServerSocket::Accept(int* const accepted_fd,
                 reinterpret_cast<struct sockaddr*>(&srvr),
                 &srvrlen);
     inet_ntop(AF_INET, &srvr.sin_addr, addrbuf, INET_ADDRSTRLEN);
-    
+
     // Get the server's dns name, or return it's IP address as
     // a substitute if the dns lookup fails.
     getnameinfo(reinterpret_cast<struct sockaddr*>(&srvr),
